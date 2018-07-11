@@ -26,7 +26,7 @@
 description = "GlowforgeColorific";
 vendor = "Glowforge";
 vendorUrl = "https://www.glowforge.com";
-legal = "Copyright (C) 2015 by Autodesk, Inc.";
+legal = "Copyright (C) 2018 by Autodesk, Inc.";
 certificationLevel = 2;
 
 longDescription = "Generic post for Glowforge laser. The post will output the toolpath as SVG graphics which can then be uploaded directly to Glowforge.";
@@ -65,6 +65,7 @@ propertyDefinitions = {
   checkForRadiusCompensation: {title:"Validate Sideways Compensation ", description:"Check each opperation for Sideways Compensation in Control. If this is configured, throw an error.", type:"boolean"},
 };
 
+var postUrl = "https://cam.autodesk.com/hsmposts?p=glowforge";
 var xyzFormat = createFormat({decimals:(unit == MM ? 3 : 4)});
 
 // Recommended colors for color mapping.
@@ -234,7 +235,8 @@ function onOpen() {
   }
 
   writeln("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + xyzFormat.format(width) + "mm\" height=\"" + xyzFormat.format(height) + "mm\" viewBox=\"0 0 " + xyzFormat.format(width) + " " + xyzFormat.format(height) + "\">");
-
+  writeln("<desc>Created with " + description + " for Fusion 360. To download visit: " + postUrl + "</desc>");
+  
   // invert y axis
   writeln("<g transform=\"translate(" + xyzFormat.format(0) + ", " + xyzFormat.format(height) + ")\"/>");
   writeln("<g transform=\"scale(1, -1)\"/>");
