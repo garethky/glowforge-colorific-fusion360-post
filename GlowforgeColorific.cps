@@ -18,6 +18,7 @@
   * Join all cuts from an op into a sigle path for propper inside/outside detection for engraving.
   * Wrap each operation in a group and give it a helpful title
   * Add options for drawing lines and filling in shapes with color
+  * If you use Etch or Vaporize this enables fill for that toolpath
   * Made line width an option
   * Made Sideways Compensation 'In Control' checking an option thats off by default.
 */
@@ -101,6 +102,7 @@ var COLOR_CYCLE = [COLOR_CYAN,
                     COLOR_DARK_GREY,
                     COLOR_BLACK];
 var cuttingColor = null;
+var useFillForSection = false;
 var currentColorIndex = -1;
 
 // called on the start of each section, initalizes the first color as CYAN.
@@ -115,10 +117,10 @@ function nextColor() {
 nextColor();
 
 function fill() {
-  if (properties.fillShapes === true) {
-    return cuttingColor;
+  if (properties.fillShapes || useFillForSection) {
+    return "fill=\"" + cuttingColor + "\" fill-opacity=\"0.25\" fill-rule=\"evenodd\"";
   }
-  return "none";
+  return "fill=\"none\"";
 }
 
 function canDrawLines() {
@@ -130,7 +132,10 @@ function canDrawLines() {
 }
 
 function stroke() {
-  return canDrawLines() ? cuttingColor : "none";
+  if(canDrawLines()) {
+    return "stroke=\"" + cuttingColor + "\" stroke-width=\"" + properties.lineWidth + "\"";
+  }
+  return "stroke=\"none\"";
 }
 
 // track if the next path element can be a move command
@@ -169,8 +174,11 @@ function finishPath() {
 
   writeln("<g id=\"opperation-" + (1 + currentSection.getId()) + "\">");
   writeln("    <title>" + opComment + " (" + localize("Op") + ": " + (1 + currentSection.getId()) + "/" + getNumberOfSections() + ")</title>");
-  writeln("    <path d=\"" + activePathElements.join("\n             ") 
-    + "\" fill=\"" + fill() + "\" fill-opacity=\"0.25\" fill-rule=\"evenodd\" stroke=\"" + stroke() + "\" stroke-width=\"" + properties.lineWidth + "\"/>")
+  writeln("    <path d=\"" + activePathElements.join("\n             ") + "\" "
+    + fill() 
+    + " "
+    + stroke()
+    + "/>")
   writeln("</g>");
   activePathElements = [];
   allowMoveCommand();
@@ -179,7 +187,7 @@ function finishPath() {
 // return true if the program should halt because of missing radius compensation in the computer.
 function isRadiusCompensationInvalid() {
   if (properties.checkForRadiusCompensation === true && (radiusCompensation != RADIUS_COMPENSATION_OFF)) {
-    error("Operation: " + (1 +currentSection.getId()) + ". The Sideways Compensation type 'In Control' is not supported. This must be set to 'In Computer' in the passes tab.");
+    error("Operation: " + (1 + currentSection.getId()) + ". The Sideways Compensation type 'In Control' is not supported. This must be set to 'In Computer' in the passes tab.");
   }
 }
 
@@ -274,6 +282,20 @@ function onSection() {
   */
   default:
     error(localize("The CNC does not support the required tool."));
+    return;
+  }
+
+  // use Jet Mode to decide if the shape should be filled or have no fill
+  switch (currentSection.jetMode) {
+  case JET_MODE_THROUGH:
+    useFillForSection = false;
+    break;
+  case JET_MODE_ETCHING:
+  case JET_MODE_VAPORIZE:
+    useFillForSection = true;
+    break;
+  default:
+    error(localize("Unsupported cutting mode."));
     return;
   }
 
