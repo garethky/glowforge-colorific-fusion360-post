@@ -17,7 +17,6 @@
   * Supress extra move commands that broke shapes into line segments
   * Join all cuts from an op into a sigle path for propper inside/outside detection for engraving.
   * Wrap each operation in a group and give it a helpful title
-  * Add options for drawing lines and filling in shapes with color
   * If you use Etch or Vaporize this enables fill for that toolpath
   * Made line width an option
   * Made Sideways Compensation 'In Control' checking an option thats off by default.
@@ -45,8 +44,6 @@ allowedCircularPlanes = (1 << PLANE_XY); // only XY arcs
 
 properties = {
   lineWidth: 0.1, // how wide lines are in the SVG
-  drawLines: true, // draw lines for cutter paths
-  fillShapes: false, // fill shapes with a fill color
   useWCS: true, // do not center the toolpath
   width: 20 * 25.4, // width in mm used when useWCS is disabled
   height: 12 * 25.4, // height in mm used when useWCS is disabled
@@ -57,8 +54,6 @@ properties = {
 // user-defined property definitions
 propertyDefinitions = {
   lineWidth: {title:"Line Width", description:"The width of lines in the SVG in mm.", type:"number"},
-  drawLines: {title:"Draw Lines", description:"Draw tool paths as lines.", type:"boolean"},
-  fillShapes: {title:"Fill Shapes", description:"Fill closed polygons with a fill color.", type:"boolean"},
   useWCS: {title:"Use WCX", description:"Do not center the toolpath.", type:"boolean"},
   width: {title:"Height(mm", description:"Height in mm, used when useWCS is disabled.", type:"number"},
   height: {title:"Height(mm)", description:"Height in mm, used when useWCS is disabled.", type:"number"},
@@ -102,7 +97,6 @@ var COLOR_CYCLE = [COLOR_CYAN,
                     COLOR_DARK_GREY,
                     COLOR_BLACK];
 var cuttingColor = null;
-var useFillForSection = false;
 var currentColorIndex = -1;
 
 // called on the start of each section, initalizes the first color as CYAN.
@@ -116,26 +110,26 @@ function nextColor() {
 }
 nextColor();
 
+// should the current sction be cut (using a stroke) or etched (using a fill)?
+var useFillForSection = false;
+/**
+ * For Etch/Vaporize/Engrave, returns fill settings, otherwise none
+ */
 function fill() {
-  if (properties.fillShapes || useFillForSection) {
+  if (useFillForSection) {
     return "fill=\"" + cuttingColor + "\" fill-opacity=\"0.25\" fill-rule=\"evenodd\"";
   }
   return "fill=\"none\"";
 }
 
-function canDrawLines() {
-  // if you disable BOTH lines and fill, the default is to draw lines. So you can have these options:
-  // * just lines
-  // * just fill
-  // * both
-  return properties.drawLines === true || properties.fillShapes === false;
-}
-
+/**
+ * For through cuts, returns stroke settings, otherwise none
+ */
 function stroke() {
-  if(canDrawLines()) {
-    return "stroke=\"" + cuttingColor + "\" stroke-width=\"" + properties.lineWidth + "\"";
+  if (useFillForSection) {
+    return "stroke=\"none\"";
   }
-  return "stroke=\"none\"";
+  return "stroke=\"" + cuttingColor + "\" stroke-width=\"" + properties.lineWidth + "\"";
 }
 
 // track if the next path element can be a move command
