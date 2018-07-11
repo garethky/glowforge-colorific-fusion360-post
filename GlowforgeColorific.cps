@@ -12,8 +12,14 @@
   Changes by Gareth:
   * changed name to "GlowforgeColorific" to make testing alongside Glowforge post easier
   * remove useColorMapping setting
-  * Add color cycling on section end
+  * Add color cycling on section end, 15 colors.
   * Join cuts from each opperation into a single path.
+  * Supress extra move commands that broke shapes into line segments
+  * Join all cuts from an op into a sigle path for propper inside/outside detection for engraving.
+  * Wrap each operation in a group and give it a helpful title
+  * Add options for drawing lines and filling in shapes with color
+  * Made line width an option
+  * Made Sideways Compensation 'In Control' checking an option thats off by default.
 */
 
 //description = "Glowforge";
@@ -44,6 +50,7 @@ properties = {
   width: 20 * 25.4, // width in mm used when useWCS is disabled
   height: 12 * 25.4, // height in mm used when useWCS is disabled
   margin: 0.25 * 25.4, // margin in mm
+  checkForRadiusCompensation: false // if enabled throw an error if compensation in control is used
 };
 
 // user-defined property definitions
@@ -54,7 +61,8 @@ propertyDefinitions = {
   useWCS: {title:"Use WCX", description:"Do not center the toolpath.", type:"boolean"},
   width: {title:"Height(mm", description:"Height in mm, used when useWCS is disabled.", type:"number"},
   height: {title:"Height(mm)", description:"Height in mm, used when useWCS is disabled.", type:"number"},
-  margin: {title:"Margin(mm)", description:"Sets the margin in mm.", type:"number"}
+  margin: {title:"Margin(mm)", description:"Sets the margin in mm.", type:"number"},
+  checkForRadiusCompensation: {title:"Validate Sideways Compensation ", description:"Check each opperation for Sideways Compensation in Control. If this is configured, throw an error.", type:"boolean"},
 };
 
 var xyzFormat = createFormat({decimals:(unit == MM ? 3 : 4)});
@@ -165,6 +173,13 @@ function finishPath() {
   writeln("</g>");
   activePathElements = [];
   allowMoveCommand();
+}
+
+// return true if the program should halt because of missing radius compensation in the computer.
+function isRadiusCompensationInvalid() {
+  if (properties.checkForRadiusCompensation === true && (radiusCompensation != RADIUS_COMPENSATION_OFF)) {
+    error("Operation: " + (1 +currentSection.getId()) + ". The Sideways Compensation type 'In Control' is not supported. This must be set to 'In Computer' in the passes tab.");
+  }
 }
 
 /** Returns the given spatial value in MM. */
@@ -284,10 +299,7 @@ function onCycleEnd() {
 }
 
 function writeLine(x, y) {
-  if (radiusCompensation != RADIUS_COMPENSATION_OFF) {
-    error(localize("Compensation in control is not supported."));
-    return;
-  }
+  isRadiusCompensationInvalid();
   
   switch (movement) {
   case MOVEMENT_CUTTING:
@@ -334,10 +346,7 @@ function onLinear5D(x, y, z, dx, dy, dz, feed) {
 }
 
 function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
-  if (radiusCompensation != RADIUS_COMPENSATION_OFF) {
-    error(localize("Compensation in control is not supported."));
-    return;
-  }
+  isRadiusCompensationInvalid();
   
   switch (movement) {
   case MOVEMENT_CUTTING:
