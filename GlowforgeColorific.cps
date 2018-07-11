@@ -13,8 +13,7 @@
   * changed name to "GlowforgeColorific" to make testing alongside Glowforge post easier
   * remove useColorMapping setting
   * Add color cycling on section end
-  * Join cuts into paths first cutting move starts a path, all non-cutting moves end a path
-  * Drop any "M" move command that is not the first element of a path
+  * Join cuts from each opperation into a single path.
 */
 
 //description = "Glowforge";
@@ -38,6 +37,9 @@ allowHelicalMoves = true;
 allowedCircularPlanes = (1 << PLANE_XY); // only XY arcs
 
 properties = {
+  lineWidth: 0.1, // how wide lines are in the SVG
+  drawLines: true, // draw lines for cutter paths
+  fillShapes: false, // fill shapes with a fill color
   useWCS: true, // do not center the toolpath
   width: 20 * 25.4, // width in mm used when useWCS is disabled
   height: 12 * 25.4, // height in mm used when useWCS is disabled
@@ -46,6 +48,9 @@ properties = {
 
 // user-defined property definitions
 propertyDefinitions = {
+  lineWidth: {title:"Line Width", description:"The width of lines in the SVG in mm.", type:"number"},
+  drawLines: {title:"Draw Lines", description:"Draw tool paths as lines.", type:"boolean"},
+  fillShapes: {title:"Fill Shapes", description:"Fill closed polygons with a fill color.", type:"boolean"},
   useWCS: {title:"Use WCX", description:"Do not center the toolpath.", type:"boolean"},
   width: {title:"Height(mm", description:"Height in mm, used when useWCS is disabled.", type:"number"},
   height: {title:"Height(mm)", description:"Height in mm, used when useWCS is disabled.", type:"number"},
@@ -87,7 +92,6 @@ var COLOR_CYCLE = [COLOR_CYAN,
                     COLOR_DARK_GREY,
                     COLOR_BLACK];
 var cuttingColor = null;
-var cuttingWidth = 0.1;
 var currentColorIndex = -1;
 
 // called on the start of each section, initalizes the first color as CYAN.
@@ -101,25 +105,66 @@ function nextColor() {
 }
 nextColor();
 
+function fill() {
+  if (properties.fillShapes === true) {
+    return cuttingColor;
+  }
+  return "none";
+}
+
+function canDrawLines() {
+  // if you disable BOTH lines and fill, the default is to draw lines. So you can have these options:
+  // * just lines
+  // * just fill
+  // * both
+  return properties.drawLines === true || properties.fillShapes === false;
+}
+
+function stroke() {
+  return canDrawLines() ? cuttingColor : "none";
+}
+
+// track if the next path element can be a move command
+var allowMoveCommandNext = true;
+
+// update the allowMoveCommandNext flag
+function allowMoveCommand() {
+  allowMoveCommandNext = true;
+}
+
 var activePathElements = [];
 function addPathElement() {
   var args = [].slice.call(arguments);
 
-  // drop moves in the middle of paths, only the first move is necessary
-  if ("M" === args[0] && activePathElements.length !== 0) {
-    return;
+  // alont allow moves after a rapid or similar move
+  if (args[0] === "M"){
+    if (allowMoveCommandNext) {
+      // if this is a move, this should disable further moves untill rapid or similar is detected.
+      allowMoveCommandNext = false;
+    }
+    else {
+      // skip rendering this move command since it was not preceeded by a rapid move
+      return;
+    }
   }
 
   activePathElements.push(args.join(" "));
 }
 
 function finishPath() {
-  if (!activePathElements || activePathElements.length == 0) {
+  if (!activePathElements || activePathElements.length === 0) {
     return;
   }
 
-  writeln("<path d=\"" + activePathElements.join("\n         ") + "\" fill=\"none\" stroke=\"" + cuttingColor + "\" stroke-width=\"" + cuttingWidth + "\"/>");
+  var opComment = hasParameter("operation-comment") ? getParameter("operation-comment") : "[No Title]";
+
+  writeln("<g id=\"opperation-" + (1 + currentSection.getId()) + "\">");
+  writeln("    <title>" + opComment + " (" + localize("Op") + ": " + (1 + currentSection.getId()) + "/" + getNumberOfSections() + ")</title>");
+  writeln("    <path d=\"" + activePathElements.join("\n             ") 
+    + "\" fill=\"" + fill() + "\" fill-opacity=\"0.25\" fill-rule=\"evenodd\" stroke=\"" + stroke() + "\" stroke-width=\"" + properties.lineWidth + "\"/>")
+  writeln("</g>");
   activePathElements = [];
+  allowMoveCommand();
 }
 
 /** Returns the given spatial value in MM. */
@@ -175,9 +220,6 @@ function onOpen() {
 
   writeln("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + xyzFormat.format(width) + "mm\" height=\"" + xyzFormat.format(height) + "mm\" viewBox=\"0 0 " + xyzFormat.format(width) + " " + xyzFormat.format(height) + "\">");
 
-  // background
-  // writeln("<rect x=\"" + xyzFormat.format(0) + "\" y=\"" + xyzFormat.format(0) + "\" width=\"" + xyzFormat.format(width) + "\" height=\"" + xyzFormat.format(height) + "\" style=\"fill:magenta;stroke:black;stroke-width:0.25;fill-opacity:0.01;stroke-opacity:0.25\"/>");
-
   // invert y axis
   writeln("<g transform=\"translate(" + xyzFormat.format(0) + ", " + xyzFormat.format(height) + ")\"/>");
   writeln("<g transform=\"scale(1, -1)\"/>");
@@ -192,9 +234,6 @@ function onOpen() {
 
   // we output in mm always so scale from inches
   xyzFormat = createFormat({decimals:(unit == MM ? 3 : 4), scale:(unit == MM) ? 1 : 25.4});
-
-  // workpiece
-  // writeln("<rect x=\"" + xyzFormat.format(box.lower.x) + "\" y=\"" + xyzFormat.format(box.lower.y) + "\" width=\"" + xyzFormat.format(box.upper.x - box.lower.x) + "\" height=\"" + xyzFormat.format(box.upper.y - box.lower.y) + "\" style=\"fill:green;stroke:black;stroke-width:0.25;fill-opacity:0.1;stroke-opacity:0.25\"/>");
 }
 
 function onComment(text) {
@@ -252,11 +291,8 @@ function writeLine(x, y) {
   
   switch (movement) {
   case MOVEMENT_CUTTING:
-    case MOVEMENT_REDUCED:
-    //writeln("<!-- writeLine Cutting -->");
-    break;
+  case MOVEMENT_REDUCED:
   case MOVEMENT_FINISH_CUTTING:
-    //writeln("<!-- writeLine Finish -->");
     break;
   case MOVEMENT_RAPID:
   case MOVEMENT_HIGH_FEED:
@@ -265,7 +301,7 @@ function writeLine(x, y) {
   case MOVEMENT_LINK_TRANSITION:
   case MOVEMENT_LINK_DIRECT:
   default:
-    finishPath();
+    allowMoveCommand();
     return; // skip
   }
 
@@ -298,9 +334,6 @@ function onLinear5D(x, y, z, dx, dy, dz, feed) {
 }
 
 function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
-  // linearize(tolerance);
-  // return;
-
   if (radiusCompensation != RADIUS_COMPENSATION_OFF) {
     error(localize("Compensation in control is not supported."));
     return;
@@ -309,10 +342,7 @@ function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
   switch (movement) {
   case MOVEMENT_CUTTING:
   case MOVEMENT_REDUCED:
-    //writeln("<!-- onCircular Cutting -->");
-    break;
   case MOVEMENT_FINISH_CUTTING:
-    //writeln("<!-- onCircular Finish -->");
     break;
   case MOVEMENT_RAPID:
   case MOVEMENT_HIGH_FEED:
@@ -321,7 +351,7 @@ function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
   case MOVEMENT_LINK_TRANSITION:
   case MOVEMENT_LINK_DIRECT:
   default:
-    finishPath();
+    allowMoveCommand();
     return;
   }
 
@@ -337,6 +367,7 @@ function onCommand() {
 }
 
 function onSectionEnd() {
+  finishPath();
   nextColor();
 }
 
