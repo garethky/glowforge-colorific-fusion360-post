@@ -20,6 +20,8 @@
   * If you use Etch or Vaporize this enables fill for that toolpath
   * Made line width an option
   * Made Sideways Compensation 'In Control' checking an option thats off by default.
+  * Always use WCS, removed option to not do that and related options for work area
+  * Added option to "Flip Model" to solve non-obvious Z inversion in CAM
 */
 
 //description = "Glowforge";
@@ -212,7 +214,7 @@ function onOpen() {
    *
    * Stock Point Compensation: 
    * First, any stock point will produce the same image, here we correct for the stock point with a translation of the entire SVG contents
-   * in x and y. We want to use the extents of the X and Y axes. Normally X comes from the lower right corner ofthe stock and Y from the 
+   * in x and y. We want to use the extents of the X and Y axes. Normally X comes from the lower right corner of the stock and Y from the 
    * upper left (assuming a CAM origin in the lower left corner).
    *
    * Y Axis in SVG vs CAM: 
