@@ -44,25 +44,21 @@ allowedCircularPlanes = (1 << PLANE_XY); // only XY arcs
 
 properties = {
   lineWidth: 0.1, // how wide lines are in the SVG
-  useWCS: true, // do not center the toolpath
-  width: 20 * 25.4, // width in mm used when useWCS is disabled
-  height: 12 * 25.4, // height in mm used when useWCS is disabled
-  margin: 0.25 * 25.4, // margin in mm
-  checkForRadiusCompensation: false // if enabled throw an error if compensation in control is used
+  margin: 2, // margin in mm
+  checkForRadiusCompensation: false, // if enabled throw an error if compensation in control is used
+  doNotFlipYAxis: false
 };
 
 // user-defined property definitions
 propertyDefinitions = {
-  lineWidth: {title:"Line Width", description:"The width of lines in the SVG in mm.", type:"number"},
-  useWCS: {title:"Use WCX", description:"Do not center the toolpath.", type:"boolean"},
-  width: {title:"Height(mm", description:"Height in mm, used when useWCS is disabled.", type:"number"},
-  height: {title:"Height(mm)", description:"Height in mm, used when useWCS is disabled.", type:"number"},
-  margin: {title:"Margin(mm)", description:"Sets the margin in mm.", type:"number"},
-  checkForRadiusCompensation: {title:"Validate Sideways Compensation ", description:"Check each opperation for Sideways Compensation in Control. If this is configured, throw an error.", type:"boolean"},
+  lineWidth: {title: "SVG Stroke Width(mm)", description: "The width of lines in the SVG in mm.", type: "number"},
+  margin: {title: "Margin(mm)", description: "Sets the margin in mm.", type: "number"},
+  checkForRadiusCompensation: {title: "Check Sideways Comp.", description: "Check every opperation for Sideways Compensation 'In Computer'. If this is not configured, throw an error.", type: "boolean"},
+  doNotFlipYAxis: {title: "Flip Model", description: "If your part is upside down, check this box to flip it over. (Tip: checking 'Flip Z Axis' in the CAM setup also fixes this)", type: "boolean"}
 };
 
 var postUrl = "https://cam.autodesk.com/hsmposts?p=glowforge";
-var xyzFormat = createFormat({decimals:(unit == MM ? 3 : 4)});
+var xyzFormat = createFormat({decimals:(unit == MM ? 3 : 4), scale:(unit == MM) ? 1 : 25.4});
 
 // Recommended colors for color mapping.
 var COLOR_GREEN = "#1FB714";
@@ -117,7 +113,7 @@ var useFillForSection = false;
  */
 function fill() {
   if (useFillForSection) {
-    return "fill=\"" + cuttingColor + "\" fill-opacity=\"0.25\" fill-rule=\"evenodd\"";
+    return "fill=\"" + cuttingColor + "\" fill-opacity=\"0.5\" fill-rule=\"evenodd\"";
   }
   return "fill=\"none\"";
 }
@@ -190,69 +186,67 @@ function toMM(value) {
   return value * ((unit == IN) ? 25.4 : 1);
 }
 
+function printVector(v) {
+  return v.x + "," + v.y;
+}
+
 function onOpen() {
-  writeln("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>");
-
-  var WIDTH = 20 * 25.4;
-  var HEIGHT = 12 * 25.4;
-
   if (properties.margin < 0) {
     error(localize("Margin must be 0 or positive."));
     return;
   }
 
   var box = getWorkpiece();
-  var dx = toMM(box.upper.x - box.lower.x) + 2 * properties.margin;
-  var dy = toMM(box.upper.y - box.lower.y) + 2 * properties.margin;
 
-  log("Width: " + xyzFormat.format(dx));
-  log("Height: " + xyzFormat.format(dy));
+  // add margins to overall SVG size
+  var width = toMM(box.upper.x - box.lower.x) + (2 * properties.margin);
+  var height = toMM(box.upper.y - box.lower.y) + (2 * properties.margin);
+  log("Width: " + xyzFormat.format(width));
+  log("Height: " + xyzFormat.format(height));
 
-  var width = WIDTH;
-  var height = HEIGHT;
-
-  var useLandscape = false;
-
-  if (properties.useWCS) {
-    width = dx;
-    height = dy;
-  } else {
-    if ((dx > width) || (dy > height)) {
-      if ((dx <= height) && (dy <= width)) {
-        useLandscape = true;
-        width = HEIGHT;
-        height = WIDTH;
-      }
-    }
-
-    log("Sheet width: " + xyzFormat.format(width));
-    log("Sheet height: " + xyzFormat.format(height));
-
-    if (dx > width) {
-      warning(localize("Toolpath exceeds sheet width."));
-    }
-    if (dy > height) {
-      warning(localize("Toolpath exceeds sheet height."));
-    }
-  }
-
+  /*
+   * Compensate for Stock Point, SVG Origin, Z axis orientation and margins
+   *
+   * The *correct* stock point to select is the lower left corner and the right Z axis orientation is pointing up from the stock towards the laser.
+   * But to make the learning curve a little gentler we will compensate if you didnt do that.
+   *
+   * Stock Point Compensation: 
+   * First, any stock point will produce the same image, here we correct for the stock point with a translation of the entire SVG contents
+   * in x and y. We want to use the extents of the X and Y axes. Normally X comes from the lower right corner ofthe stock and Y from the 
+   * upper left (assuming a CAM origin in the lower left corner).
+   *
+   * Y Axis in SVG vs CAM: 
+   * If we do nothing the image would be upside down because in SVG the Y origin is at the TOP of the image (see https://www.w3.org/TR/SVG/coords.html#InitialCoordinateSystem).
+   * So normally the Y axis must be flipped to compensate for this by scaling it to -1.
+   * 
+   * Incorrect Z Axis Orientation:
+   * If the user has the Z axis pointing into the stock the SVG image will be upside down (flipped in Y, twice!). This is annoying and is not obvious to fix
+   * because X and Y look right in the UI. So the "Flip Model" parameter is provided and does *magic* by turning off the default Y flipping. Now the Y axis is only flipped once
+   * like we need for the SVG origin. But the *lower* box point has to be used to get the Y extent in this case because the *CAM* is upside down (CAM origin is top left corner).
+   * Unfortunatly the stock point selection changes the ratio between Y values in the upper and lower stock points, so its impossible to detect this without assuming a stock point.
+   * So this is as good as we can do.
+   *
+   * Margins:
+   * Add 1 magin width to these numbers so the image is centred.
+   */
+  var yAxisScale = properties.doNotFlipYAxis ? 1 : -1;
+  var translateX = xyzFormat.format(toMM(-1 * box.lower.x) + properties.margin);
+  var translateY = xyzFormat.format(toMM(-1 * yAxisScale * (properties.doNotFlipYAxis ? box.lower.y : box.upper.y)) + properties.margin);
+  
+  writeln("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>");
   writeln("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + xyzFormat.format(width) + "mm\" height=\"" + xyzFormat.format(height) + "mm\" viewBox=\"0 0 " + xyzFormat.format(width) + " " + xyzFormat.format(height) + "\">");
   writeln("<desc>Created with " + description + " for Fusion 360. To download visit: " + postUrl + "</desc>");
+
+  // write a comment explaining what info we got from the CAM system about the stock and coordinate system
+  writeln("<!-- CAM Setup Info:"
+    + "\nStock height: " + height 
+    + "\nStock width:" + width 
+    + "\nStock box top left: " + printVector(box.upper) 
+    + "\nStock box bottom right: " + printVector(box.lower) 
+    + "\n-->");
   
-  // invert y axis
-  writeln("<g transform=\"translate(" + xyzFormat.format(0) + ", " + xyzFormat.format(height) + ")\"/>");
-  writeln("<g transform=\"scale(1, -1)\"/>");
-
-  if (properties.useWCS) {
-    // adjust for margin
-    writeln("<g transform=\"translate(" + xyzFormat.format(-toMM(box.lower.x) + properties.margin) + ", " + xyzFormat.format(-toMM(box.lower.y) + properties.margin) + ")\"/>");
-  } else {
-    // center on sheet
-    writeln("<g transform=\"translate(" + xyzFormat.format(-toMM(box.lower.x) + (width - dx)/2) + ", " + xyzFormat.format(-toMM(box.lower.y) + (height - dy)/2) + ")\"/>");
-  }
-
-  // we output in mm always so scale from inches
-  xyzFormat = createFormat({decimals:(unit == MM ? 3 : 4), scale:(unit == MM) ? 1 : 25.4});
+  // translate + scale operation to flip the Y axis so the output is in the same x/y orientation it was in Fusion 360
+  writeln("<g id=\"global-translation-frame\" transform=\"translate(" + translateX + ", " + translateY + ") scale(1, " + yAxisScale + ")\">");
 }
 
 function onComment(text) {
@@ -399,5 +393,6 @@ function onSectionEnd() {
 }
 
 function onClose() {
+  writeln("</g>");
   writeln("</svg>");
 }
