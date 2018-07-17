@@ -63,39 +63,65 @@ var postUrl = "https://cam.autodesk.com/hsmposts?p=glowforge";
 var xyzFormat = createFormat({decimals:(unit == MM ? 3 : 4), scale:(unit == MM) ? 1 : 25.4});
 
 // Recommended colors for color mapping.
-var COLOR_GREEN = "#1FB714";
-var COLOR_YELLOW = "#FBF305";
-var COLOR_DARK_GREEN = "#006412";
-var COLOR_ORANGE = "#FF6403";
-var COLOR_BROWN = "#562C05";
-var COLOR_RED = "#DD0907";
-var COLOR_TAN = "#90713A";
-var COLOR_MAGENTA = "#F20884";
-var COLOR_LIGHT_GREY = "#C0C0C0";
-var COLOR_PURPLE = "#4700A5";
-var COLOR_MEDIUM_GREY = "#808080";
-var COLOR_BLUE = "#0000D3";
-var COLOR_DARK_GREY = "#404040";
-var COLOR_CYAN = "#02ABEA";
-var COLOR_BLACK = "#000000";
+var COLOR_GREEN = "1FB714";
+var COLOR_YELLOW = "FBF305";
+var COLOR_DARK_GREEN = "006412";
+var COLOR_ORANGE = "FF6403";
+var COLOR_BROWN = "562C05";
+var COLOR_RED = "DD0907";
+var COLOR_TAN = "90713A";
+var COLOR_MAGENTA = "F20884";
+var COLOR_LIGHT_GREY = "C0C0C0";
+var COLOR_PURPLE = "4700A5";
+var COLOR_MEDIUM_GREY = "808080";
+var COLOR_BLUE = "0000D3";
+var COLOR_DARK_GREY = "404040";
+var COLOR_CYAN = "02ABEA";
+var COLOR_BLACK = "000000";
 
-var COLOR_CYCLE = [COLOR_CYAN,
-                    COLOR_MAGENTA,
-                    COLOR_YELLOW,
-                    COLOR_RED,
-                    COLOR_GREEN,
-                    COLOR_BLUE,
-                    COLOR_ORANGE,
-                    COLOR_DARK_GREEN,
-                    COLOR_PURPLE,
-                    COLOR_BROWN,
-                    COLOR_TAN,
-                    COLOR_LIGHT_GREY,
-                    COLOR_MEDIUM_GREY,
-                    COLOR_DARK_GREY,
-                    COLOR_BLACK];
-var cuttingColor = null;
+var COLOR_CYCLE = sortColors(COLOR_GREEN,
+                              COLOR_YELLOW,
+                              COLOR_DARK_GREEN,
+                              COLOR_ORANGE,
+                              COLOR_BROWN,
+                              COLOR_RED,
+                              COLOR_TAN,
+                              COLOR_MAGENTA,
+                              COLOR_LIGHT_GREY,
+                              COLOR_PURPLE,
+                              COLOR_MEDIUM_GREY,
+                              COLOR_BLUE,
+                              COLOR_DARK_GREY,
+                              COLOR_CYAN,
+                              COLOR_BLACK);
+
+// the hex string of the current color
+var currentHexColor = null;
+// the index of the current color
 var currentColorIndex = -1;
+
+// Glowforge doesn't respect the order of operations in the SVG file, it re-sorts them by the hex color value in ascending order
+// so here the color cycle is sorted to preserve op order from CAM.
+function sortColors() {
+  var inputColors = [].slice.call(arguments);
+  var mappedColors = inputColors.map(function (color, i) {
+    return {hexColor: '#' + color, hexValue: parseInt(color, 16)};
+  });
+
+  mappedColors.sort(function compare(a, b) {
+    if (a.hexValue < b.hexValue) {
+      return -1;
+    }
+    if (a.hexValue > b.hexValue) {
+      return 1;
+    }
+    return 0;
+  });
+
+  return mappedColors.map(function (color, i) {
+    return color.hexColor;
+  });
+}
 
 // called on the start of each section, initalizes the first color as CYAN.
 function nextColor() {
@@ -104,18 +130,19 @@ function nextColor() {
     currentColorIndex = 0;
   }
 
-  cuttingColor = COLOR_CYCLE[currentColorIndex];
+  currentHexColor = COLOR_CYCLE[currentColorIndex];
 }
 nextColor();
 
 // should the current sction be cut (using a stroke) or etched (using a fill)?
 var useFillForSection = false;
+var useDashStroke = false;
 /**
  * For Etch/Vaporize/Engrave, returns fill settings, otherwise none
  */
 function fill() {
   if (useFillForSection) {
-    return "fill=\"" + cuttingColor + "\" fill-opacity=\"0.5\" fill-rule=\"evenodd\"";
+    return "fill=\"" + currentHexColor + "\" fill-opacity=\"0.5\" fill-rule=\"evenodd\"";
   }
   return "fill=\"none\"";
 }
@@ -127,7 +154,7 @@ function stroke() {
   if (useFillForSection) {
     return "stroke=\"none\"";
   }
-  return "stroke=\"" + cuttingColor + "\" stroke-width=\"" + properties.lineWidth + "\"";
+  return "stroke=\"" + currentHexColor + "\" stroke-width=\"" + properties.lineWidth + "\"" + (useDashStroke ? " stroke-dasharray=\"1\"" : "");
 }
 
 // track if the next path element can be a move command
@@ -279,11 +306,16 @@ function onSection() {
   switch (currentSection.jetMode) {
   case JET_MODE_THROUGH:
     useFillForSection = false;
+    useDashStroke = false;
     break;
   case JET_MODE_ETCHING:
+    useFillForSection = false;
+    useDashStroke = true;
+    break;
   case JET_MODE_VAPORIZE:
     useFillForSection = true;
-    break;
+    useDashStroke = false;
+    break
   default:
     error(localize("Unsupported cutting mode."));
     return;
