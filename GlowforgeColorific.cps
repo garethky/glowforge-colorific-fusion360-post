@@ -136,7 +136,6 @@ nextColor();
 
 // should the current sction be cut (using a stroke) or etched (using a fill)?
 var useFillForSection = false;
-var useDashStroke = false;
 /**
  * For Etch/Vaporize/Engrave, returns fill settings, otherwise none
  */
@@ -154,7 +153,7 @@ function stroke() {
   if (useFillForSection) {
     return "stroke=\"none\"";
   }
-  return "stroke=\"" + currentHexColor + "\" stroke-width=\"" + properties.lineWidth + "\"" + (useDashStroke ? " stroke-dasharray=\"1\"" : "");
+  return "stroke=\"" + currentHexColor + "\" stroke-width=\"" + properties.lineWidth + "\"";
 }
 
 // track if the next path element can be a move command
@@ -306,15 +305,10 @@ function onSection() {
   switch (currentSection.jetMode) {
   case JET_MODE_THROUGH:
     useFillForSection = false;
-    useDashStroke = false;
     break;
   case JET_MODE_ETCHING:
-    useFillForSection = false;
-    useDashStroke = true;
-    break;
   case JET_MODE_VAPORIZE:
-    useFillForSection = true;
-    useDashStroke = false;
+    useFillForSection = true
     break
   default:
     error(localize("Unsupported cutting mode."));
