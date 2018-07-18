@@ -79,36 +79,44 @@ var COLOR_DARK_GREY = "404040";
 var COLOR_CYAN = "02ABEA";
 var COLOR_BLACK = "000000";
 
-var COLOR_CYCLE = sortColors(COLOR_GREEN,
-                              COLOR_YELLOW,
-                              COLOR_DARK_GREEN,
-                              COLOR_ORANGE,
-                              COLOR_BROWN,
-                              COLOR_RED,
-                              COLOR_TAN,
-                              COLOR_MAGENTA,
-                              COLOR_LIGHT_GREY,
-                              COLOR_PURPLE,
-                              COLOR_MEDIUM_GREY,
-                              COLOR_BLUE,
-                              COLOR_DARK_GREY,
-                              COLOR_CYAN,
-                              COLOR_BLACK);
+var COLOR_CYCLE = [COLOR_CYAN,
+                    COLOR_MAGENTA,
+                    COLOR_YELLOW,
+                    COLOR_RED,
+                    COLOR_GREEN,
+                    COLOR_BLUE,
+                    COLOR_ORANGE,
+                    COLOR_DARK_GREEN,
+                    COLOR_PURPLE,
+                    COLOR_BROWN,
+                    COLOR_TAN,
+                    COLOR_LIGHT_GREY,
+                    COLOR_MEDIUM_GREY,
+                    COLOR_DARK_GREY,
+                    COLOR_BLACK];
 
+// dont pick fewer colors than this
+var MIN_COLORS = 6;
+// selected colors to use for this run
+var activeColorCycle = null;
 // the hex string of the current color
 var currentHexColor = null;
 // the index of the current color
 var currentColorIndex = -1;
 
+// select a subset of colors so our preferred color pallet is used (and not simply the color with the lowest hex value first)
+function selectColors() {
+  activeColorCycle = sortColors(COLOR_CYCLE.slice(0, Math.max(MIN_COLORS, getNumberOfSections())));
+}
+
 // Glowforge doesn't respect the order of operations in the SVG file, it re-sorts them by the hex color value in ascending order
 // so here the color cycle is sorted to preserve op order from CAM.
-function sortColors() {
-  var inputColors = [].slice.call(arguments);
-  var mappedColors = inputColors.map(function (color, i) {
+function sortColors(inputColors) {
+  var mappedColors = inputColors.map(function buildHexColors(color, i) {
     return {hexColor: '#' + color, hexValue: parseInt(color, 16)};
   });
 
-  mappedColors.sort(function compare(a, b) {
+  mappedColors.sort(function compareHexValues(a, b) {
     if (a.hexValue < b.hexValue) {
       return -1;
     }
@@ -118,21 +126,20 @@ function sortColors() {
     return 0;
   });
 
-  return mappedColors.map(function (color, i) {
+  return mappedColors.map(function reduceToHexColor(color, i) {
     return color.hexColor;
   });
 }
 
-// called on the start of each section, initalizes the first color as CYAN.
+// called on the start of each section, initalizes the first color from the active color cycle.
 function nextColor() {
   currentColorIndex = currentColorIndex + 1;
-  if (currentColorIndex >= COLOR_CYCLE.length) {
+  if (currentColorIndex >= activeColorCycle.length) {
     currentColorIndex = 0;
   }
 
-  currentHexColor = COLOR_CYCLE[currentColorIndex];
+  currentHexColor = activeColorCycle[currentColorIndex];
 }
-nextColor();
 
 // should the current sction be cut (using a stroke) or etched (using a fill)?
 var useFillForSection = false;
@@ -223,6 +230,9 @@ function onOpen() {
     error(localize("Margin must be 0 or positive."));
     return;
   }
+  
+  // select colors now that the number of ops is available
+  selectColors();
 
   var box = getWorkpiece();
 
@@ -270,7 +280,8 @@ function onOpen() {
     + "\nStock height: " + height 
     + "\nStock width:" + width 
     + "\nStock box top left: " + printVector(box.upper) 
-    + "\nStock box bottom right: " + printVector(box.lower) 
+    + "\nStock box bottom right: " + printVector(box.lower)
+    + "\nSelected Colors: " + activeColorCycle.join(", ")
     + "\n-->");
   
   // translate + scale operation to flip the Y axis so the output is in the same x/y orientation it was in Fusion 360
@@ -281,7 +292,6 @@ function onComment(text) {
 }
 
 function onSection() {
-
   switch (tool.type) {
   case TOOL_WATER_JET: // allow any way for Epilog
     warning(localize("Using waterjet cutter but allowing it anyway."));
@@ -321,6 +331,7 @@ function onSection() {
     return;
   }
   setRotation(remaining);
+  nextColor();
 }
 
 function onParameter(name, value) {
