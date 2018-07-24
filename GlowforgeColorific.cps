@@ -48,15 +48,24 @@ properties = {
   lineWidth: 0.1, // how wide lines are in the SVG
   margin: 2, // margin in mm
   checkForRadiusCompensation: false, // if enabled throw an error if compensation in control is used
-  doNotFlipYAxis: false
+  doNotFlipYAxis: false,
+  useWorkArea: false, // center the toolpath in the machines work area, off by default
+  autoStockPoint: true, // automatically translate the output paths for strage stock points, see the whole image no matter what you select
+  // Glowforge Cutting area: aprox. 19.5″ (495 mm) wide and 11″ (279 mm) deep
+  workAreaWidth: 495, // width in mm used when useWorkArea is enabled
+  workAreaHeight: 279, // height in mm used when useWorkArea is enabled
 };
 
 // user-defined property definitions
 propertyDefinitions = {
   lineWidth: {title: "SVG Stroke Width(mm)", description: "The width of lines in the SVG in mm.", type: "number"},
-  margin: {title: "Margin(mm)", description: "Sets the margin in mm.", type: "number"},
+  margin: {title: "Margin(mm)", description: "Sets the margin in mm when 'Crop to Workpiece' is used.", type: "number"},
   checkForRadiusCompensation: {title: "Check Sideways Comp.", description: "Check every opperation for Sideways Compensation 'In Computer'. If this is not configured, throw an error.", type: "boolean"},
-  doNotFlipYAxis: {title: "Flip Model", description: "If your part is upside down, check this box to flip it over. (Tip: checking 'Flip Z Axis' in the CAM setup also fixes this)", type: "boolean"}
+  doNotFlipYAxis: {title: "Flip Model", description: "If your part is upside down, check this box to flip it over. (Tip: checking 'Flip Z Axis' in the CAM setup also fixes this)", type: "boolean"},
+  useWorkArea: {title:"Use Work Area", description:"Center the toolpaths in an image the size of the defined Work Area.", type:"boolean"},
+  autoStockPoint: {title:"Auto Stock Point", description:"Make the final image completly visible reguardless of the selected stock point.", type:"boolean"},
+  workAreaWidth: {title:"Work Area Width(mm", description:"Work Area Width in mm, used when 'Crop to Workpiece' is disabled. Typically the max cutting width of the Glowforge.", type:"number"},
+  workAreaHeight: {title:"Work Area Height(mm)", description:"Height in mm, used when 'Crop to Workpiece' is disabled. Typically the max cutting height of the Glowforge.", type:"number"},
 };
 
 var postUrl = "https://cam.autodesk.com/hsmposts?p=glowforge";
@@ -106,7 +115,27 @@ var currentColorIndex = -1;
 
 // select a subset of colors so our preferred color pallet is used (and not simply the color with the lowest hex value first)
 function selectColors() {
-  activeColorCycle = sortColors(COLOR_CYCLE.slice(0, Math.max(MIN_COLORS, getNumberOfSections())));
+  var requiredColors = Math.max(MIN_COLORS, getNumberOfSections()); // makes sure that more than enough colors get made
+  var finalColorCycle = [];
+  var numColors = COLOR_CYCLE.length;
+
+  // if the number of default colors is too small, we will build lighter shades of those colors to fill in the extra needed colors:
+  var alphaSteps = Math.ceil(requiredColors / numColors);
+  var alphaStep = 1 / alphaSteps;
+  var alphaStepIndex = 0;
+  var colorIndex = 0;
+  finalColorCycle = [];
+
+  for (var i = 0; i < requiredColors; i++) {
+    finalColorCycle.push(alphaBlendHexColor(COLOR_CYCLE[colorIndex], 1 - (alphaStep * alphaStepIndex)));
+    colorIndex += 1;  // next color
+    if (colorIndex >= numColors) {
+      colorIndex = 0;  // start back at the first color
+      alphaStepIndex++;  // next lighter shade
+    }
+  }
+
+  activeColorCycle = sortColors(finalColorCycle);
 }
 
 // Glowforge doesn't respect the order of operations in the SVG file, it re-sorts them by the hex color value in ascending order
@@ -129,6 +158,30 @@ function sortColors(inputColors) {
   return mappedColors.map(function reduceToHexColor(color, i) {
     return color.hexColor;
   });
+}
+
+// returns a hex color that is alphaPercent lighter than the input color
+function alphaBlendHexColor(hexColorString, alphaPercent) {
+  // alphaPercent needs to be converted from a float to a fraction of 255
+  var alpha = Math.round(alphaPercent * 255);
+
+  // hex color needs to be converted from a hex string to its constituent parts:
+  var red = parseInt(hexColorString.substring(0, 2), 16);
+  var green = parseInt(hexColorString.substring(2, 4), 16);
+  var blue = parseInt(hexColorString.substring(4, 6), 16);
+
+  return [alphaBlend(red, alpha), alphaBlend(green, alpha), alphaBlend(blue, alpha)].join('');
+}
+
+// returns properly padded 2 digit hex strings for RGB color channels
+function toHexColorChannel(decimal) {
+  var hex = decimal.toString(16);
+  return (hex.length === 1 ? '0' : '') + hex;
+}
+
+// Alpha blend a color channel white 
+function alphaBlend(colorChannel, alpha) {
+  return toHexColorChannel(Math.round((colorChannel * alpha + 255 * (255 - alpha)) / 255));
 }
 
 // called on the start of each section, initalizes the first color from the active color cycle.
@@ -235,12 +288,19 @@ function onOpen() {
   selectColors();
 
   var box = getWorkpiece();
+  var dx = toMM(box.upper.x - box.lower.x);
+  var dy = toMM(box.upper.y - box.lower.y);
 
   // add margins to overall SVG size
-  var width = toMM(box.upper.x - box.lower.x) + (2 * properties.margin);
-  var height = toMM(box.upper.y - box.lower.y) + (2 * properties.margin);
-  log("Width: " + xyzFormat.format(width));
-  log("Height: " + xyzFormat.format(height));
+  var width = dx + (2 * properties.margin);
+  var height = dy + (2 * properties.margin);
+  if (properties.useWorkArea === true) {
+    // no margins in useWorkArea mode, you get the work area as your margins!
+    width = properties.workAreaWidth;
+    height = properties.workAreaHeight;
+  }
+  log("Work Area Width: " + xyzFormat.format(width));
+  log("Work Area Height: " + xyzFormat.format(height));
 
   /*
    * Compensate for Stock Point, SVG Origin, Z axis orientation and margins
@@ -248,7 +308,7 @@ function onOpen() {
    * The *correct* stock point to select is the lower left corner and the right Z axis orientation is pointing up from the stock towards the laser.
    * But to make the learning curve a little gentler we will compensate if you didnt do that.
    *
-   * Stock Point Compensation: 
+   * Auto Stock Point Compensation: 
    * First, any stock point will produce the same image, here we correct for the stock point with a translation of the entire SVG contents
    * in x and y. We want to use the extents of the X and Y axes. Normally X comes from the lower right corner of the stock and Y from the 
    * upper left (assuming a CAM origin in the lower left corner).
@@ -268,9 +328,20 @@ function onOpen() {
    * Add 1 magin width to these numbers so the image is centred.
    */
   var yAxisScale = properties.doNotFlipYAxis ? 1 : -1;
-  var translateX = xyzFormat.format(toMM(-1 * box.lower.x) + properties.margin);
-  var translateY = xyzFormat.format(toMM(-1 * yAxisScale * (properties.doNotFlipYAxis ? box.lower.y : box.upper.y)) + properties.margin);
-  
+  var translateX = 0;
+  var translateY = 0;
+
+  if (properties.autoStockPoint === true) {
+    translateX = xyzFormat.format(toMM(-1 * box.lower.x) + properties.margin);
+    translateY = xyzFormat.format(toMM(-1 * yAxisScale * (properties.doNotFlipYAxis ? box.lower.y : box.upper.y)) + properties.margin);
+  }
+  else if (useWorkArea) {
+    // FIXME: this is probably wrong if the design turns out to be bigger than the work area, e.g. (width - dx) will be negative!
+    // FIXME: this code currently assume correctly selected stock point
+    translateX = xyzFormat.format(toMM(-1 * box.lower.x) + ((width - dx) / 2));
+    translateY = xyzFormat.format(toMM(-1 * box.lower.y) + ((height - dy) / 2));
+  }
+
   writeln("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>");
   writeln("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + xyzFormat.format(width) + "mm\" height=\"" + xyzFormat.format(height) + "mm\" viewBox=\"0 0 " + xyzFormat.format(width) + " " + xyzFormat.format(height) + "\">");
   writeln("<desc>Created with " + description + " for Fusion 360. To download visit: " + postUrl + "</desc>");
@@ -278,7 +349,7 @@ function onOpen() {
   // write a comment explaining what info we got from the CAM system about the stock and coordinate system
   writeln("<!-- CAM Setup Info:"
     + "\nStock height: " + height 
-    + "\nStock width:" + width 
+    + "\nStock width: " + width 
     + "\nStock box top left: " + printVector(box.upper) 
     + "\nStock box bottom right: " + printVector(box.lower)
     + "\nSelected Colors: " + activeColorCycle.join(", ")
@@ -289,6 +360,7 @@ function onOpen() {
 }
 
 function onComment(text) {
+  writeln('<!--' + text + '-->');
 }
 
 function onSection() {
@@ -301,11 +373,9 @@ function onSection() {
   case TOOL_PLASMA_CUTTER: // allow any way for Epilog
     warning(localize("Using plasma cutter but allowing it anyway."));
     break;
-  /*
   case TOOL_MARKER: // allow any way for Epilog
     warning(localize("Using marker but allowing it anyway."));
     break;
-  */
   default:
     error(localize("The CNC does not support the required tool."));
     return;
@@ -379,12 +449,10 @@ function writeLine(x, y) {
 }
 
 function onRapid(x, y, z) {
-  //writeln("<!-- onRapid -->");
   writeLine(x, y);
 }
 
 function onLinear(x, y, z, feed) {
-  //writeln("<!-- onLinear -->");
   writeLine(x, y);
 }
 
