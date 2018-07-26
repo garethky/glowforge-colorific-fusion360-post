@@ -201,7 +201,7 @@ var useFillForSection = false;
  */
 function fill() {
   if (useFillForSection) {
-    return "fill=\"" + currentHexColor + "\" fill-opacity=\"0.5\" fill-rule=\"evenodd\"";
+    return "fill=\"" + currentHexColor + "\"";
   }
   return "fill=\"none\"";
 }
@@ -245,6 +245,7 @@ function addPathElement() {
 
 function finishPath() {
   if (!activePathElements || activePathElements.length === 0) {
+    error('An operation resulted in no detectable paths!');
     return;
   }
 
@@ -441,6 +442,7 @@ function writeLine(x, y) {
   var start = getCurrentPosition();
   if ((xyzFormat.format(start.x) == xyzFormat.format(x)) &&
       (xyzFormat.format(start.y) == xyzFormat.format(y))) {
+    log('vertical move ignored');
     return; // ignore vertical
   }
 

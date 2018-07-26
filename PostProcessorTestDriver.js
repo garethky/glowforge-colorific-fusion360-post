@@ -345,25 +345,15 @@ FLAG_CYCLE_REPEAT_PASS = 1;
 var currentSection = null;
 var movement = null;
 var currentTest = null;
-var unit = PostProcessorConstants.MM;
-var radiusCompensation = PostProcessorConstants.RADIUS_COMPENSATION_OFF;
+var unit = MM;
+var radiusCompensation = RADIUS_COMPENSATION_OFF;
 
 // dummy vector constructor
-function Vector(x, y, x) {
+function Vector(x, y, z) {
 	this.x = x;
 	this.y = y;
-	this.z = z;
+	this.z = z || 0;
 }
-
-function createSection(id, lines, jetMode) {
-	getId: function getId() {
-		return 0;
-	},
-	jetMode: PostProcessorConstants.JET_MODE_THROUGH,
-	workPlane: {
-		forward: new Vector(0, 0, 1)
-	}
-};
 
 function line(isRapid, x, y) {
 	return {
@@ -381,30 +371,29 @@ function move(x, y) {
 	return line(true, x, y);
 }
 
-function newTest(upperX, upperY, lowerX, lowerY) {
+function newTest(lowerX, lowerY, upperX, upperY) {
 	var sections = [];
+	// this is the current position
 	var x = 0, y = 0;
 	var outputLines = [];
 
-	function processLine(lines) {
+	function processLines(lines) {
 		for (var i = 0; i < lines.length; i++) {
 			processLine(lines[i]);
 		}
 	}
 	function processLine(line) {
-		var finalX = x += line.x;
-		var finalY = y += line.y;
-		
-		if (line.isRapid) {
+		console.log('line', line);
+		if (line.isRapid === true) {
 			movement = MOVEMENT_RAPID;
-			onRapid(finalX, finalY, 0);
+			onRapid(line.x, line.y, 0);
 		}
 		else {
 			movement = MOVEMENT_CUTTING;
-			onLinear(finalX, finalY, 0);
+			onLinear(line.x, line.y, 0);
 		}
-		x = finalX;
-		y += finalY;
+		x = line.x;
+		y = line.y;
 	}
 
 	// returned object becomes the current test as well as the interface for configuring the test
@@ -414,11 +403,11 @@ function newTest(upperX, upperY, lowerX, lowerY) {
 		},
 		getWorkpiece: function getWorkpiece() {
 			return {
-				upper: {x: upperX, y: upperY}
-				lower: {x: lowerX, y: lowerY}
+				upper: new Vector(upperX, upperY, 0),
+				lower: new Vector(lowerX, lowerY, 0)
 			}
 		},
-		withSection: function (id, jetMode, parameters, lines) {
+		withSection: function (jetMode, parameters, lines) {
 			var id = sections.length;
 			var section = {
 				getId: function getId() {
@@ -438,28 +427,33 @@ function newTest(upperX, upperY, lowerX, lowerY) {
 			}
 
 			sections.push(section);
+			return test;
 		},
 		getCurrentPosition: function() {
 			return {x: x, y: y}
 		},
 		writeln: function writeln(line) {
 			outputLines.push(line);
-		}
+		},
 		run: function run(targetId) {
+			// assign global current test
+			currentTest = test;
 			onOpen();
-
 			for (var i = 0; i < sections.length; i++) {
 				currentSection = sections[i];
-				onSectionBegin();
+				onSection();
 				processLines(currentSection.lines);
 				onSectionEnd();
 				currentSection = null;
 				movement = null;
 			}
-
 			onClose();
+			currentTest = null;
+
 			// run all sections...
-			document.getElementById(targetId).innerHTML(outputLines.join("\n"));
+			var svg = outputLines.join("\n")
+			console.log(svg);
+			document.getElementById(targetId).innerHTML = svg;
 		}
 	};
 
@@ -468,7 +462,7 @@ function newTest(upperX, upperY, lowerX, lowerY) {
 
 // we dont need to test anything but the laser
 var tool = {
-	type: PostProcessorConstants.TOOL_LASER_CUTTER
+	type: TOOL_LASER_CUTTER
 }
 
 // real working degrees to radians function
@@ -530,4 +524,7 @@ function getWorkpiece() {
 
 function getCurrentPosition() {
 	return currentTest.getCurrentPosition();
+}
+
+function setCodePage(codePage) {
 }
