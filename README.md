@@ -17,6 +17,8 @@ The goal of this post is to eliminate the need to perform any post-processing of
 * Add an option to compensate for inverted Z axis in the setup.
 * Support centering the SVG content in a frame the size of the Glowforge bed (size is configurable)
 * Add comments to and names and IDs to SVG elements. Each op is numbered with a unique ID. Comments are supported as HTML comments.
+* Support centering the design in the machine workspace with the 'Use Work Area' option.
+* Show a red error box if your design is larger than the machine workspace size when 'Use Work Area' is on.
 
 ## Wishlist
 * Scoring support - this is no currently officially suppoorted by Glowforge. Dashed lines seem like the obvious choice but thye produce an error.
