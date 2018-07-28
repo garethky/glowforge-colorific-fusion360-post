@@ -352,7 +352,7 @@ var radiusCompensation = RADIUS_COMPENSATION_OFF;
 function Vector(x, y, z) {
 	this.x = x;
 	this.y = y;
-	this.z = z || 0;
+	this.z = z || 0;  // auto set Z to zero
 }
 
 function line(isRapid, x, y) {
@@ -371,10 +371,13 @@ function move(x, y) {
 	return line(true, x, y);
 }
 
-function newTest(lowerX, lowerY, upperX, upperY) {
+/**
+ * Tests are constructed by describing the lower left, upper right and origin vectors of the work
+ */
+function newTest(lowerLeftVector, upperRightVector, originVector) {
 	var sections = [];
 	// this is the current position
-	var x = 0, y = 0;
+	var x = originVector.x, y = originVector.y;
 	var outputLines = [];
 
 	function processLines(lines) {
@@ -403,8 +406,8 @@ function newTest(lowerX, lowerY, upperX, upperY) {
 		},
 		getWorkpiece: function getWorkpiece() {
 			return {
-				upper: new Vector(upperX, upperY, 0),
-				lower: new Vector(lowerX, lowerY, 0)
+				upper: upperRightVector,
+				lower: lowerLeftVector
 			}
 		},
 		withSection: function (jetMode, parameters, lines) {

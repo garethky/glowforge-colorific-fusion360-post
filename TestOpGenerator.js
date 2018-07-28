@@ -9,7 +9,8 @@ function drawBox(x, y) {
 }
 
 function test1() {
-	newTest(0, 0, 10, 10)
+	// lower left, upper right, origin vector
+	newTest(new Vector(0, 0), new Vector(10, 10), new Vector(0, 0))
 		.withSection(JET_MODE_ETCHING, {}, drawBox(0, 10))
 		.run('test-1-result');
 }
