@@ -1,31 +1,9 @@
 /**
   Copyright (C) 2015 by Autodesk, Inc.
   All rights reserved.
-
-  $Revision: 41602 8a235290846bfe71ead6a010711f4fc730f48827 $
-  $Date: 2017-09-14 12:16:32 $
-  
-  FORKID {2E27B627-115A-4A16-A853-5B9B9D9AF480}
 */
 
-/**
-  Changes by Gareth:
-  * changed name to "GlowforgeColorific" to make testing alongside Glowforge post easier
-  * remove useColorMapping setting
-  * Add color cycling on section end, 15 colors.
-  * Join cuts from each opperation into a single path.
-  * Supress extra move commands that broke shapes into line segments
-  * Join all cuts from an op into a sigle path for propper inside/outside detection for engraving.
-  * Wrap each operation in a group and give it a helpful title
-  * If you use Etch or Vaporize this enables fill for that toolpath
-  * Made line width an option
-  * Made Sideways Compensation 'In Control' checking an option thats off by default.
-  * Always use WCS, removed option to not do that and related options for work area
-  * Added option to "Flip Model" to solve non-obvious Z inversion in CAM
-*/
-
-//description = "Glowforge";
-description = "GlowforgeColorific";
+description = "Glowforge";
 vendor = "Glowforge";
 vendorUrl = "https://www.glowforge.com";
 legal = "Copyright (C) 2018 by Autodesk, Inc.";
