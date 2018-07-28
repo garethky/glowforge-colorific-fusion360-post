@@ -24,5 +24,12 @@ The goal of this post is to eliminate the need to perform any post-processing of
 * Scoring support - this is no currently officially suppoorted by Glowforge. Dashed lines seem like the obvious choice but thye produce an error.
 * Feeds & Speeds for custom materials - Ideally this could vary by opperation and would be a part of the Tool used in the CAM operation. Needs support Glowforge App.
 
+# License
+Copyright (C) 2018 by Autodesk, Inc.
+All rights reserved.
+
+This work is based on an original work by Autodesk, Inc. Ths work is provided *Gratis* but *not Libre*, see: https://en.wikipedia.org/wiki/Gratis_versus_libre
+This was developed for my own personal use and posted so that others (including Autodesk, Inc.) might benefit from this effort.
+
 # Documentation
 TK
