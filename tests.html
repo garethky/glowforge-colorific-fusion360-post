@@ -3,6 +3,12 @@
 	<title>Tests TK</title>
 	<script src="PostProcessorTestDriver.js"></script>
 	<script src="GlowforgeColorific.cps"></script>
+	<!-- Add borders to SVGs so the canvas size is evident -->
+	<style>
+		svg {
+			border: 1px solid magenta;
+		}
+	</style>
 </head>
 <body>
 <h1>Glowforge Colorific Tests</h1>
@@ -50,6 +56,18 @@
 			<td id="use-work-area-lower-left"></td>
 			<td id="use-work-area-lower-middle"></td>
 			<td id="use-work-area-lower-right"></td>
+		</tr>
+	</table>
+</div>
+
+<div>
+	<h2>Violate Work Area Test</h2>
+	<p><b>Description:</b> The design can be larger than the specified Machine Work Area in X or Y.</p>
+	<p><b>Expected:</b> 2 cells with blue filled rectangles. A Red box with an extra thick line representes the specified machine area demonstating how the design wont fit.</p>
+	<table>
+		<tr>
+			<td id="violate-work-area-width"></td>
+			<td id="violate-work-area-height"></td>
 		</tr>
 	</table>
 </div>

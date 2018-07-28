@@ -1,3 +1,4 @@
+// draws a box, clockwise, starting in the upper left corner
 function drawBoxWithSize(x, y, width, height) {
 	return [
 		move(x, y),
@@ -27,6 +28,14 @@ function useWorkAreaTest(lowerLeftX, lowerLeftY, upperRightX, upperRightY, targe
 		  				workAreaHeight: 20});
 }
 
+function violateWorkAreaTest(boxWidth, boxHeight, targetId) {
+	// lower left, upper right, origin vector
+	return newTest(new Vector(0, 0), new Vector(boxWidth, boxHeight), new Vector(0, 0), targetId)
+		.withSection(JET_MODE_ETCHING, {}, drawBoxWithSize(0, boxHeight, boxWidth, boxHeight))
+		.withProperties({useWorkArea: true,
+	 					workAreaWidth: 20,
+		  				workAreaHeight: 20});
+}
 
 (function runAllTests() {
 	var tests = [];
@@ -52,6 +61,10 @@ function useWorkAreaTest(lowerLeftX, lowerLeftY, upperRightX, upperRightY, targe
 	tests.push(useWorkAreaTest(0,     0, 10, 10, 'use-work-area-lower-left'));
 	tests.push(useWorkAreaTest(-5,    0, 5,  10, 'use-work-area-lower-middle'));
 	tests.push(useWorkAreaTest(-10,   0, 0,  10, 'use-work-area-lower-right'));
+
+	// work area too small
+	tests.push(violateWorkAreaTest(50, 10, 'violate-work-area-width'));
+	tests.push(violateWorkAreaTest(10, 50, 'violate-work-area-height'));
 
 	for (var i = 0; i < tests.length; i++) {
 		var test = tests[i];
