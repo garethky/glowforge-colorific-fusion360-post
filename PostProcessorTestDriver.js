@@ -374,17 +374,25 @@ function move(x, y) {
 /**
  * Tests are constructed by describing the lower left, upper right and origin vectors of the work
  */
-function newTest(lowerLeftVector, upperRightVector, originVector) {
+function newTest(lowerLeftVector, upperRightVector, originVector, targetId) {
 	var sections = [];
 	// this is the current position
 	var x = originVector.x, y = originVector.y;
 	var outputLines = [];
+	var customProperties = {};
+
+	function applyProperties() {
+		for (let [key, value] of new Map(Object.entries(customProperties))) {
+ 			properties[key] = value;
+		}
+	}
 
 	function processLines(lines) {
 		for (var i = 0; i < lines.length; i++) {
 			processLine(lines[i]);
 		}
 	}
+
 	function processLine(line) {
 		console.log('line', line);
 		if (line.isRapid === true) {
@@ -410,7 +418,7 @@ function newTest(lowerLeftVector, upperRightVector, originVector) {
 				lower: lowerLeftVector
 			}
 		},
-		withSection: function (jetMode, parameters, lines) {
+		withSection: function (jetMode, sectionParameters, lines) {
 			var id = sections.length;
 			var section = {
 				getId: function getId() {
@@ -421,15 +429,19 @@ function newTest(lowerLeftVector, upperRightVector, originVector) {
 					forward: new Vector(0, 0, 1)
 				},
 				hasParameter: function hasParameter(key) {
-					return !!parameters[key];
+					return !!sectionParameters[key];
 				},
 				getParameter: function getParameter(key) {
-					return parameters[key];
+					return sectionParameters[key];
 				},
 				lines: lines
 			}
 
 			sections.push(section);
+			return test;
+		},
+		withProperties(props) {
+			customProperties = props;
 			return test;
 		},
 		getCurrentPosition: function() {
@@ -438,9 +450,12 @@ function newTest(lowerLeftVector, upperRightVector, originVector) {
 		writeln: function writeln(line) {
 			outputLines.push(line);
 		},
-		run: function run(targetId) {
+		run: function run() {
 			// assign global current test
 			currentTest = test;
+			// simlulate the CAM system setting user configurable properties
+			resetProperties();
+			applyProperties();
 			onOpen();
 			for (var i = 0; i < sections.length; i++) {
 				currentSection = sections[i];

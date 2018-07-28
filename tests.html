@@ -5,9 +5,54 @@
 	<script src="GlowforgeColorific.cps"></script>
 </head>
 <body>
-<h1>Tests TK</h1>
+<h1>Glowforge Colorific Tests</h1>
 </body>
-<div id="test-1-result"></div>
+
+<div>
+	<h2>Auto Stock Point Detection Test</h2>
+	<p><b>Description:</b> Test all 9 possible Y/X stock point selections. Auto Stock Point detection should produce SVGs that are centered in the canvas.</p>
+	<p><b>Expected:</b> A grid of 9 identical boxes in 3 rows. The boxes should be solid filled and centered.</p>
+	<table>
+		<tr>
+			<td id="auto-stock-point-upper-left"></td>
+			<td id="auto-stock-point-upper-middle"></td>
+			<td id="auto-stock-point-upper-right"></td>
+		</tr>
+		<tr>
+			<td id="auto-stock-point-middle-left"></td>
+			<td id="auto-stock-point-middle-middle"></td>
+			<td id="auto-stock-point-middle-right"></td>
+		</tr>
+		<tr>
+			<td id="auto-stock-point-lower-left"></td>
+			<td id="auto-stock-point-lower-middle"></td>
+			<td id="auto-stock-point-lower-right"></td>
+		</tr>
+	</table>
+</div>
+
+<div>
+	<h2>Use Work Area Test</h2>
+	<p><b>Description:</b> Test all 9 possible Y/X stock point selections in combination with a custom machine work area. Auto Stock Point detection should produce SVGs that are centered in the custom machine work area.</p>
+	<p><b>Expected:</b> A grid of 9 identical boxes in 3 rows. The boxes should be solid filled and centered.</p>
+	<table>
+		<tr>
+			<td id="use-work-area-upper-left"></td>
+			<td id="use-work-area-upper-middle"></td>
+			<td id="use-work-area-upper-right"></td>
+		</tr>
+		<tr>
+			<td id="use-work-area-middle-left"></td>
+			<td id="use-work-area-middle-middle"></td>
+			<td id="use-work-area-middle-right"></td>
+		</tr>
+		<tr>
+			<td id="use-work-area-lower-left"></td>
+			<td id="use-work-area-lower-middle"></td>
+			<td id="use-work-area-lower-right"></td>
+		</tr>
+	</table>
+</div>
 
 <script src="TestOpGenerator.js"></script>
 </html>

@@ -44,17 +44,23 @@ maximumCircularSweep = toRad(90); // avoid potential center calculation errors f
 allowHelicalMoves = true;
 allowedCircularPlanes = (1 << PLANE_XY); // only XY arcs
 
-properties = {
-  lineWidth: 0.1, // how wide lines are in the SVG
-  margin: 2, // margin in mm
-  checkForRadiusCompensation: false, // if enabled throw an error if compensation in control is used
-  doNotFlipYAxis: false,
-  useWorkArea: false, // center the toolpath in the machines work area, off by default
-  autoStockPoint: true, // automatically translate the output paths for strage stock points, see the whole image no matter what you select
-  // Glowforge Cutting area: aprox. 19.5″ (495 mm) wide and 11″ (279 mm) deep
-  workAreaWidth: 495, // width in mm used when useWorkArea is enabled
-  workAreaHeight: 279, // height in mm used when useWorkArea is enabled
-};
+// global prooperties variable
+properties = null;
+// made available for testing
+function resetProperties() {
+    properties = {
+      lineWidth: 0.1, // how wide lines are in the SVG
+      margin: 2, // margin in mm
+      checkForRadiusCompensation: false, // if enabled throw an error if compensation in control is used
+      doNotFlipYAxis: false,
+      useWorkArea: false, // center the toolpath in the machines work area, off by default
+      autoStockPoint: true, // automatically translate the output paths for strage stock points, see the whole image no matter what you select
+      // Glowforge Cutting area: aprox. 19.5″ (495 mm) wide and 11″ (279 mm) deep
+      workAreaWidth: 495, // width in mm used when useWorkArea is enabled
+      workAreaHeight: 279, // height in mm used when useWorkArea is enabled
+  };
+}
+resetProperties();
 
 // user-defined property definitions
 propertyDefinitions = {
@@ -68,8 +74,7 @@ propertyDefinitions = {
   workAreaHeight: {title:"Work Area Height(mm)", description:"Height in mm, used when 'Crop to Workpiece' is disabled. Typically the max cutting height of the Glowforge.", type:"number"},
 };
 
-var postUrl = "https://cam.autodesk.com/hsmposts?p=glowforge";
-var xyzFormat = createFormat({decimals:(unit == MM ? 3 : 4), scale:(unit == MM) ? 1 : 25.4});
+var POST_URL = "https://cam.autodesk.com/hsmposts?p=glowforge";
 
 // Recommended colors for color mapping.
 var COLOR_GREEN = "1FB714";
@@ -106,12 +111,23 @@ var COLOR_CYCLE = [COLOR_CYAN,
 
 // dont pick fewer colors than this
 var MIN_COLORS = 6;
-// selected colors to use for this run
-var activeColorCycle = null;
-// the hex string of the current color
-var currentHexColor = null;
-// the index of the current color
-var currentColorIndex = -1;
+
+/** Global State **/
+function reset() {
+  return {
+    //
+    xyzFormat: createFormat({decimals:(unit == MM ? 3 : 4), scale:(unit == MM) ? 1 : 25.4}),
+    // selected colors to use for this run
+    activeColorCycle: null,
+    // the hex string of the current color
+    currentHexColor: null,
+    // the index of the current color
+    currentColorIndex: -1,
+    // track if the next path element can be a move command
+    allowMoveCommandNext: null
+  };
+}
+var state = null;
 
 // select a subset of colors so our preferred color pallet is used (and not simply the color with the lowest hex value first)
 function selectColors() {
@@ -124,7 +140,7 @@ function selectColors() {
   var alphaStep = 1 / alphaSteps;
   var alphaStepIndex = 0;
   var colorIndex = 0;
-  finalColorCycle = [];
+  var finalColorCycle = [];
 
   for (var i = 0; i < requiredColors; i++) {
     finalColorCycle.push(alphaBlendHexColor(COLOR_CYCLE[colorIndex], 1 - (alphaStep * alphaStepIndex)));
@@ -135,7 +151,8 @@ function selectColors() {
     }
   }
 
-  activeColorCycle = sortColors(finalColorCycle);
+  // reset all color related variables to allow re-runs
+  state.activeColorCycle = sortColors(finalColorCycle);
 }
 
 // Glowforge doesn't respect the order of operations in the SVG file, it re-sorts them by the hex color value in ascending order
@@ -186,12 +203,12 @@ function alphaBlend(colorChannel, alpha) {
 
 // called on the start of each section, initalizes the first color from the active color cycle.
 function nextColor() {
-  currentColorIndex = currentColorIndex + 1;
-  if (currentColorIndex >= activeColorCycle.length) {
-    currentColorIndex = 0;
+  state.currentColorIndex = state.currentColorIndex + 1;
+  if (state.currentColorIndex >= state.activeColorCycle.length) {
+    state.currentColorIndex = 0;
   }
 
-  currentHexColor = activeColorCycle[currentColorIndex];
+  state.currentHexColor = state.activeColorCycle[state.currentColorIndex];
 }
 
 // should the current sction be cut (using a stroke) or etched (using a fill)?
@@ -201,7 +218,7 @@ var useFillForSection = false;
  */
 function fill() {
   if (useFillForSection) {
-    return "fill=\"" + currentHexColor + "\"";
+    return "fill=\"" + state.currentHexColor + "\"";
   }
   return "fill=\"none\"";
 }
@@ -213,15 +230,12 @@ function stroke() {
   if (useFillForSection) {
     return "stroke=\"none\"";
   }
-  return "stroke=\"" + currentHexColor + "\" stroke-width=\"" + properties.lineWidth + "\"";
+  return "stroke=\"" + state.currentHexColor + "\" stroke-width=\"" + properties.lineWidth + "\"";
 }
-
-// track if the next path element can be a move command
-var allowMoveCommandNext = true;
 
 // update the allowMoveCommandNext flag
 function allowMoveCommand() {
-  allowMoveCommandNext = true;
+  state.allowMoveCommandNext = true;
 }
 
 var activePathElements = [];
@@ -230,9 +244,9 @@ function addPathElement() {
 
   // alont allow moves after a rapid or similar move
   if (args[0] === "M"){
-    if (allowMoveCommandNext) {
+    if (state.allowMoveCommandNext) {
       // if this is a move, this should disable further moves untill rapid or similar is detected.
-      allowMoveCommandNext = false;
+      state.allowMoveCommandNext = false;
     }
     else {
       // skip rendering this move command since it was not preceeded by a rapid move
@@ -284,6 +298,9 @@ function onOpen() {
     error(localize("Margin must be 0 or positive."));
     return;
   }
+
+  // reset all per-run state
+  state = reset();
   
   // select colors now that the number of ops is available
   selectColors();
@@ -300,8 +317,8 @@ function onOpen() {
     width = properties.workAreaWidth;
     height = properties.workAreaHeight;
   }
-  log("Work Area Width: " + xyzFormat.format(width));
-  log("Work Area Height: " + xyzFormat.format(height));
+  log("Work Area Width: " + state.xyzFormat.format(width));
+  log("Work Area Height: " + state.xyzFormat.format(height));
 
   /*
    * Compensate for Stock Point, SVG Origin, Z axis orientation and margins
@@ -332,28 +349,29 @@ function onOpen() {
   var translateX = 0;
   var translateY = 0;
 
-  if (properties.autoStockPoint === true) {
-    translateX = xyzFormat.format(toMM(-1 * box.lower.x) + properties.margin);
-    translateY = xyzFormat.format(toMM(-1 * yAxisScale * (properties.doNotFlipYAxis ? box.lower.y : box.upper.y)) + properties.margin);
-  }
-  else if (useWorkArea) {
+  if (properties.useWorkArea === true) {
     // FIXME: this is probably wrong if the design turns out to be bigger than the work area, e.g. (width - dx) will be negative!
-    // FIXME: this code currently assume correctly selected stock point
-    translateX = xyzFormat.format(toMM(-1 * box.lower.x) + ((width - dx) / 2));
-    translateY = xyzFormat.format(toMM(-1 * box.lower.y) + ((height - dy) / 2));
+    translateX = state.xyzFormat.format(-toMM(box.lower.x) + ((width - dx) / 2));
+    translateY = state.xyzFormat.format(toMM(box.upper.y) + ((height - dy) / 2));
   }
+  else if (properties.autoStockPoint === true) {
+    translateX = state.xyzFormat.format(toMM(-1 * box.lower.x) + properties.margin);
+    translateY = state.xyzFormat.format(toMM(-1 * yAxisScale * (properties.doNotFlipYAxis ? box.lower.y : box.upper.y)) + properties.margin);
+  }
+  // else dont translate anythng.
 
   writeln("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>");
-  writeln("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + xyzFormat.format(width) + "mm\" height=\"" + xyzFormat.format(height) + "mm\" viewBox=\"0 0 " + xyzFormat.format(width) + " " + xyzFormat.format(height) + "\">");
-  writeln("<desc>Created with " + description + " for Fusion 360. To download visit: " + postUrl + "</desc>");
+  writeln("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + state.xyzFormat.format(width) + "mm\" height=\"" + state.xyzFormat.format(height) + "mm\" viewBox=\"0 0 " + state.xyzFormat.format(width) + " " + state.xyzFormat.format(height) + "\">");
+  writeln("<desc>Created with " + description + " for Fusion 360. To download visit: " + POST_URL + "</desc>");
 
   // write a comment explaining what info we got from the CAM system about the stock and coordinate system
   writeln("<!-- CAM Setup Info:"
     + "\nStock height: " + height 
     + "\nStock width: " + width 
-    + "\nStock box top left: " + printVector(box.upper) 
-    + "\nStock box bottom right: " + printVector(box.lower)
-    + "\nSelected Colors: " + activeColorCycle.join(", ")
+    + "\nStock box Upper Right: " + printVector(box.upper) 
+    + "\nStock box Lower Left: " + printVector(box.lower)
+    + "\nOrigin: " + printVector(getCurrentPosition())
+    + "\nSelected Colors: " + state.activeColorCycle.join(", ")
     + "\n-->");
   
   // translate + scale operation to flip the Y axis so the output is in the same x/y orientation it was in Fusion 360
@@ -440,14 +458,14 @@ function writeLine(x, y) {
   }
 
   var start = getCurrentPosition();
-  if ((xyzFormat.format(start.x) == xyzFormat.format(x)) &&
-      (xyzFormat.format(start.y) == xyzFormat.format(y))) {
+  if ((state.xyzFormat.format(start.x) == state.xyzFormat.format(x)) &&
+      (state.xyzFormat.format(start.y) == state.xyzFormat.format(y))) {
     log('vertical move ignored');
     return; // ignore vertical
   }
 
-  addPathElement("M", xyzFormat.format(start.x), xyzFormat.format(start.y));
-  addPathElement("L", xyzFormat.format(x), xyzFormat.format(y));
+  addPathElement("M", state.xyzFormat.format(start.x), state.xyzFormat.format(start.y));
+  addPathElement("L", state.xyzFormat.format(x), state.xyzFormat.format(y));
 }
 
 function onRapid(x, y, z) {
@@ -489,8 +507,8 @@ function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
 
   var largeArc = (getCircularSweep() > Math.PI) ? 1 : 0;
   var sweepFlag = isClockwise() ? 0 : 1;
-  addPathElement("M", xyzFormat.format(start.x), xyzFormat.format(start.y));
-  addPathElement("A", xyzFormat.format(getCircularRadius()), xyzFormat.format(getCircularRadius()), 0, largeArc, sweepFlag, xyzFormat.format(x), xyzFormat.format(y));
+  addPathElement("M", state.xyzFormat.format(start.x), state.xyzFormat.format(start.y));
+  addPathElement("A", state.xyzFormat.format(getCircularRadius()), state.xyzFormat.format(getCircularRadius()), 0, largeArc, sweepFlag, state.xyzFormat.format(x), state.xyzFormat.format(y));
 }
 
 function onCommand() {
