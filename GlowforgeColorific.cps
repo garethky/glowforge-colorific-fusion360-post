@@ -124,7 +124,9 @@ function reset() {
     // the index of the current color
     currentColorIndex: -1,
     // track if the next path element can be a move command
-    allowMoveCommandNext: null
+    allowMoveCommandNext: null,
+    // is the work area too small?
+    workAreaTooSmall: false
   };
 }
 var state = null;
@@ -308,7 +310,6 @@ function onOpen() {
   var box = getWorkpiece();
   var dx = toMM(box.upper.x - box.lower.x);
   var dy = toMM(box.upper.y - box.lower.y);
-  var workAreaTooSmall = false;
 
   // add margins to overall SVG size
   var width = dx + (2 * properties.margin);
@@ -318,7 +319,7 @@ function onOpen() {
     // no margins in useWorkArea mode, you get the work area as your margins!
     width = Math.max(properties.workAreaWidth, dx);
     height = Math.max(properties.workAreaHeight, dy);
-    workAreaTooSmall = dx > properties.workAreaWidth || dy > properties.workAreaHeight;
+    state.workAreaTooSmall = dx > properties.workAreaWidth || dy > properties.workAreaHeight;
   }
   log("Work Area Width: " + state.xyzFormat.format(width));
   log("Work Area Height: " + state.xyzFormat.format(height));
@@ -376,14 +377,18 @@ function onOpen() {
     + "\nOrigin: " + printVector(getCurrentPosition())
     + "\nSelected Colors: " + state.activeColorCycle.join(", ")
     + "\n-->");
-  
-  // draw an untranslated box to represent the work are boundary
-  if (workAreaTooSmall === true) {
-    writeln("<rect x=\"" + state.xyzFormat.format(0) + "\" y=\"" + state.xyzFormat.format(0) + "\" width=\"" + state.xyzFormat.format(properties.workAreaWidth) + "\" height=\"" + state.xyzFormat.format(properties.workAreaHeight) + "\" style=\"fill:none;stroke:red;stroke-width:1;\"/>");
-  }
 
   // translate + scale operation to flip the Y axis so the output is in the same x/y orientation it was in Fusion 360
   writeln("<g id=\"global-translation-frame\" transform=\"translate(" + translateX + ", " + translateY + ") scale(1, " + yAxisScale + ")\">");
+}
+
+function onClose() {
+  writeln("</g>");
+  // draw an untranslated box to represent the work are boundary on top of everything
+  if (state.workAreaTooSmall === true) {
+    writeln("<rect x=\"" + state.xyzFormat.format(0) + "\" y=\"" + state.xyzFormat.format(0) + "\" width=\"" + state.xyzFormat.format(properties.workAreaWidth) + "\" height=\"" + state.xyzFormat.format(properties.workAreaHeight) + "\" style=\"fill:none;stroke:red;stroke-width:1;\"/>");
+  }
+  writeln("</svg>");
 }
 
 function onComment(text) {
@@ -525,9 +530,4 @@ function onCommand() {
 function onSectionEnd() {
   finishPath();
   nextColor();
-}
-
-function onClose() {
-  writeln("</g>");
-  writeln("</svg>");
 }
