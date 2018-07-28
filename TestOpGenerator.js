@@ -37,6 +37,35 @@ function violateWorkAreaTest(boxWidth, boxHeight, targetId) {
 		  				workAreaHeight: 20});
 }
 
+function colorTest(colorCount) {
+	var columns = 15;
+	var width = Math.ceil(13 * columns) - 3;
+	var height = Math.ceil(13 * Math.ceil(colorCount / columns)) - 3;
+
+	// lower left, upper right, origin vector
+	var test =  newTest(new Vector(0, 0), new Vector(width, height), new Vector(0, 0), "colors-" + colorCount);
+
+	var x = 0, y = height;
+	
+	var rows = 0;
+	var j = 0;
+	for (var i = 0; i < colorCount; i ++) {
+		test.withSection(JET_MODE_ETCHING, {}, drawBox(x, y));
+		x += 13;
+		j++;
+		if (j >= columns) {
+			j = 0;
+			x = 0;
+			y -= 13;
+			rows++;
+			//move(0, 10 - (rows * (13)));
+
+		}
+	}
+
+	return test;
+}
+
 (function runAllTests() {
 	var tests = [];
 
@@ -65,6 +94,14 @@ function violateWorkAreaTest(boxWidth, boxHeight, targetId) {
 	// work area too small
 	tests.push(violateWorkAreaTest(50, 10, 'violate-work-area-width'));
 	tests.push(violateWorkAreaTest(10, 50, 'violate-work-area-height'));
+
+	// color tests
+	tests.push(colorTest(6));
+	tests.push(colorTest(15));
+	tests.push(colorTest(50));
+	tests.push(colorTest(120));
+	tests.push(colorTest(256));
+	tests.push(colorTest(1024));
 
 	for (var i = 0; i < tests.length; i++) {
 		var test = tests[i];
