@@ -1,4 +1,26 @@
 // draws a box, clockwise, starting in the upper left corner
+function drawArrow(x, y) {
+	return [
+		move(x, y),
+
+		// arrow
+		move(x += 5, y),
+		cut(x += 5, y -= 4),
+		cut(x, y -= 2),
+		cut(x -= 3, y),
+		cut(x, y -= 4),
+		
+		cut(x -= 4, y),
+
+		cut(x, y += 4),
+		cut(x -= 3, y),
+		cut(x, y += 2),
+		cut(x += 5, y += 4),
+		move(x, y),
+	]
+}
+
+// draws a box, clockwise, starting in the upper left corner
 function drawBoxWithSize(x, y, width, height) {
 	return [
 		move(x, y),
@@ -16,13 +38,13 @@ function drawBox(x, y) {
 function autoStockPointTest(lowerLeftX, lowerLeftY, upperRightX, upperRightY, targetId) {
 	// lower left, upper right, origin vector
 	return newTest(new Vector(lowerLeftX, lowerLeftY), new Vector(upperRightX, upperRightY), new Vector(0, 0), targetId)
-		.withSection(JET_MODE_ETCHING, {}, drawBox(lowerLeftX, upperRightY));
+		.withSection(JET_MODE_ETCHING, {}, drawArrow(lowerLeftX, upperRightY));
 }
 
 function useWorkAreaTest(lowerLeftX, lowerLeftY, upperRightX, upperRightY, targetId) {
 	// lower left, upper right, origin vector
 	return newTest(new Vector(lowerLeftX, lowerLeftY), new Vector(upperRightX, upperRightY), new Vector(0, 0), targetId)
-		.withSection(JET_MODE_ETCHING, {}, drawBox(lowerLeftX, upperRightY))
+		.withSection(JET_MODE_ETCHING, {}, drawArrow(lowerLeftX, upperRightY))
 		.withProperties({useWorkArea: true,
 	 					workAreaWidth: 20,
 		  				workAreaHeight: 20});
@@ -32,6 +54,7 @@ function violateWorkAreaTest(boxWidth, boxHeight, targetId) {
 	// lower left, upper right, origin vector
 	return newTest(new Vector(0, 0), new Vector(boxWidth, boxHeight), new Vector(0, 0), targetId)
 		.withSection(JET_MODE_ETCHING, {}, drawBoxWithSize(0, boxHeight, boxWidth, boxHeight))
+		.withSection(JET_MODE_ETCHING, {}, drawArrow(0, boxHeight))
 		.withProperties({useWorkArea: true,
 	 					workAreaWidth: 20,
 		  				workAreaHeight: 20});

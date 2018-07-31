@@ -17,7 +17,7 @@
 <div>
 	<h2>Auto Stock Point Detection Test</h2>
 	<p><b>Description:</b> Test all 9 possible Y/X stock point selections. Auto Stock Point detection should produce SVGs that are centered in the canvas.</p>
-	<p><b>Expected:</b> A grid of 9 identical boxes in 3 rows. The boxes should be solid filled and centered.</p>
+	<p><b>Expected:</b> A grid of 9 identical arrows in 3 rows. The arrows should be solid filled, centered and pointing up.</p>
 	<table>
 		<tr>
 			<td id="auto-stock-point-upper-left"></td>
@@ -39,8 +39,8 @@
 
 <div>
 	<h2>Use Work Area Test</h2>
-	<p><b>Description:</b> Test all 9 possible Y/X stock point selections in combination with a custom machine work area. Auto Stock Point detection should produce SVGs that are centered in the custom machine work area.</p>
-	<p><b>Expected:</b> A grid of 9 identical boxes in 3 rows. The boxes should be solid filled and centered.</p>
+	<p><b>Description:</b> Test all 9 possible Y/X stock point selections in combination with a custom machine work area. Auto Stock Point detection should produce SVGs that are centered in the custom machine work area. The work area is configured as 20mm x 20mm.</p>
+	<p><b>Expected:</b> A grid of 9 identical arrows in 3 rows. The arrows should be solid filled, centered and pointing up.</p>
 	<table>
 		<tr>
 			<td id="use-work-area-upper-left"></td>
@@ -62,7 +62,7 @@
 
 <div>
 	<h2>Violate Work Area Test</h2>
-	<p><b>Description:</b> The design can be larger than the specified Machine Work Area in X or Y.</p>
+	<p><b>Description:</b> The design can be larger than the specified Machine Work Area in X or Y. The work area is configured as 20mm x 20mm.</p>
 	<p><b>Expected:</b> 2 cells with blue filled rectangles. A Red box with an extra thick line representes the specified machine area demonstating how the design wont fit.</p>
 	<table>
 		<tr>
