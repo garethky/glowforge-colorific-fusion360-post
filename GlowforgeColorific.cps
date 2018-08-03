@@ -93,8 +93,10 @@ var MIN_COLORS = 6;
 /** Global State **/
 function reset() {
   return {
-    //
-    xyzFormat: createFormat({decimals:(unit == MM ? 3 : 4), scale:(unit == MM) ? 1 : 25.4}),
+    // ConverterFormat: converted from IN to MM as needed
+    xyzFormat: createFormat({decimals:(3), scale:(unit == MM) ? 1 : 25.4}),
+    // clamp to 3 decimals but dont convert
+    decimalFormat: createFormat({decimals:(3), scale: 1}),
     // selected colors to use for this run
     activeColorCycle: null,
     // the hex string of the current color
@@ -286,8 +288,14 @@ function onOpen() {
   selectColors();
 
   var box = getWorkpiece();
-  var dx = toMM(box.upper.x - box.lower.x);
-  var dy = toMM(box.upper.y - box.lower.y);
+  // convert everything to mm once up front:
+  box.upper.x = toMM(box.upper.x);
+  box.upper.y = toMM(box.upper.y);
+  box.lower.x = toMM(box.lower.x);
+  box.lower.y = toMM(box.lower.y);
+
+  var dx = box.upper.x - box.lower.x;
+  var dy = box.upper.y - box.lower.y;
 
   // add margins to overall SVG size
   var width = dx + (2 * properties.margin);
@@ -297,11 +305,8 @@ function onOpen() {
     // no margins in useWorkArea mode, you get the work area as your margins!
     width = Math.max(properties.workAreaWidth, dx);
     height = Math.max(properties.workAreaHeight, dy);
-    state.workAreaTooSmall = dx > properties.workAreaWidth || dy > properties.workAreaHeight;
+    state.workAreaTooSmall = width > properties.workAreaWidth || height > properties.workAreaHeight;
   }
-  log("Work Area Width: " + state.xyzFormat.format(width));
-  log("Work Area Height: " + state.xyzFormat.format(height));
-
   /*
    * Compensate for Stock Point, SVG Origin, Z axis orientation and margins
    *
@@ -333,38 +338,39 @@ function onOpen() {
 
   if (properties.useWorkArea === true) {
     // FIXME: this is probably wrong if the design turns out to be bigger than the work area, e.g. (width - dx) will be negative!
-    translateX = state.xyzFormat.format(-toMM(box.lower.x) + ((width - dx) / 2));
-    translateY = state.xyzFormat.format(toMM(box.upper.y) + ((height - dy) / 2));
+    translateX = (-box.lower.x + ((width - dx) / 2));
+    translateY = (box.upper.y + ((height - dy) / 2));
   }
   else if (properties.autoStockPoint === true) {
-    translateX = state.xyzFormat.format(toMM(-1 * box.lower.x) + properties.margin);
-    translateY = state.xyzFormat.format(toMM(-1 * yAxisScale * (properties.doNotFlipYAxis ? box.lower.y : box.upper.y)) + properties.margin);
+    translateX = (-1 * box.lower.x) + properties.margin;
+    translateY = (-1 * yAxisScale * (properties.doNotFlipYAxis ? box.lower.y : box.upper.y)) + properties.margin;
   }
   // else dont translate anythng.
 
   writeln("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>");
-  writeln("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + state.xyzFormat.format(width) + "mm\" height=\"" + state.xyzFormat.format(height) + "mm\" viewBox=\"0 0 " + state.xyzFormat.format(width) + " " + state.xyzFormat.format(height) + "\">");
+  writeln("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"" + width + "mm\" height=\"" + height + "mm\" viewBox=\"0 0 " + width + " " + height + "\">");
   writeln("<desc>Created with " + description + " for Fusion 360. To download visit: " + POST_URL + "</desc>");
 
   // write a comment explaining what info we got from the CAM system about the stock and coordinate system
   writeln("<!-- CAM Setup Info:"
-    + "\nStock height: " + height 
-    + "\nStock width: " + width 
-    + "\nStock box Upper Right: " + printVector(box.upper) 
+    + "\nWork Area Width: " + width + "mm"
+    + "\nWork Area Height: " + height + "mm"
+    + "\nWork Area Too Small?: " + state.workAreaTooSmall
+    + "\nStock box Upper Right: " + printVector(box.upper)
     + "\nStock box Lower Left: " + printVector(box.lower)
     + "\nOrigin: " + printVector(getCurrentPosition())
     + "\nSelected Colors: " + state.activeColorCycle.join(", ")
     + "\n-->");
 
   // translate + scale operation to flip the Y axis so the output is in the same x/y orientation it was in Fusion 360
-  writeln("<g id=\"global-translation-frame\" transform=\"translate(" + translateX + ", " + translateY + ") scale(1, " + yAxisScale + ")\">");
+  writeln("<g id=\"global-translation-frame\" transform=\"translate(" + state.decimalFormat.format(translateX) + ", " + state.decimalFormat.format(translateY) + ") scale(1, " + yAxisScale + ")\">");
 }
 
 function onClose() {
   writeln("</g>");
   // draw an untranslated box to represent the work are boundary on top of everything
   if (state.workAreaTooSmall === true) {
-    writeln("<rect x=\"" + state.xyzFormat.format(0) + "\" y=\"" + state.xyzFormat.format(0) + "\" width=\"" + state.xyzFormat.format(properties.workAreaWidth) + "\" height=\"" + state.xyzFormat.format(properties.workAreaHeight) + "\" style=\"fill:none;stroke:red;stroke-width:1;\"/>");
+    writeln("<rect id=\"work-area-boundary\" x=\"" + 0 + "\" y=\"" + 0 + "\" width=\"" + state.decimalFormat.format(properties.workAreaWidth) + "\" height=\"" + state.decimalFormat.format(properties.workAreaHeight) + "\" style=\"fill:none;stroke:red;stroke-width:1;\"/>");
   }
   writeln("</svg>");
 }

@@ -380,6 +380,7 @@ function newTest(lowerLeftVector, upperRightVector, originVector, targetId) {
 	var x = originVector.x, y = originVector.y;
 	var outputLines = [];
 	var customProperties = {};
+	var testUnits = MM;
 
 	function applyProperties() {
 		for (let [key, value] of new Map(Object.entries(customProperties))) {
@@ -444,6 +445,10 @@ function newTest(lowerLeftVector, upperRightVector, originVector, targetId) {
 			customProperties = props;
 			return test;
 		},
+		withUnits: function withUnits(units) {
+			testUnits = units === MM ? MM : IN;
+			return test;
+		},
 		getCurrentPosition: function() {
 			return {x: x, y: y}
 		},
@@ -453,6 +458,7 @@ function newTest(lowerLeftVector, upperRightVector, originVector, targetId) {
 		run: function run() {
 			// assign global current test
 			currentTest = test;
+			unit = testUnits;
 			// simlulate the CAM system setting user configurable properties
 			resetProperties();
 			applyProperties();
@@ -494,7 +500,7 @@ function toRad (angle) {
 function createFormat(options) {
 	return {
 		format: function format(number) {
-			return (number * options.scale).toFixed(options.decimals);
+			return '' + (number * options.scale).toFixed(options.decimals);
 		}
 	};
 }

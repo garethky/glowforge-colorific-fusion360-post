@@ -38,6 +38,29 @@
 </div>
 
 <div>
+	<h2>Imperial Units Test</h2>
+	<p><b>Description:</b> Test all 9 possible Y/X stock point selections where the model and stock are in Inches. Auto Stock Point detection should produce SVGs that are centered in the canvas.</p>
+	<p><b>Expected:</b> A grid of 9 identical arrows in 3 rows. The arrows should be solid filled, centered and pointing up.</p>
+	<table>
+		<tr>
+			<td id="auto-stock-point-in-upper-left"></td>
+			<td id="auto-stock-point-in-upper-middle"></td>
+			<td id="auto-stock-point-in-upper-right"></td>
+		</tr>
+		<tr>
+			<td id="auto-stock-point-in-middle-left"></td>
+			<td id="auto-stock-point-in-middle-middle"></td>
+			<td id="auto-stock-point-in-middle-right"></td>
+		</tr>
+		<tr>
+			<td id="auto-stock-point-in-lower-left"></td>
+			<td id="auto-stock-point-in-lower-middle"></td>
+			<td id="auto-stock-point-in-lower-right"></td>
+		</tr>
+	</table>
+</div>
+
+<div>
 	<h2>Use Work Area Test</h2>
 	<p><b>Description:</b> Test all 9 possible Y/X stock point selections in combination with a custom machine work area. Auto Stock Point detection should produce SVGs that are centered in the custom machine work area. The work area is configured as 20mm x 20mm.</p>
 	<p><b>Expected:</b> A grid of 9 identical arrows in 3 rows. The arrows should be solid filled, centered and pointing up.</p>

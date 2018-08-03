@@ -1,21 +1,22 @@
 // draws a box, clockwise, starting in the upper left corner
-function drawArrow(x, y) {
+function drawArrow(x, y, scale) {
+	scale = scale ? scale : 1;
 	return [
 		move(x, y),
 
 		// arrow
-		move(x += 5, y),
-		cut(x += 5, y -= 4),
-		cut(x, y -= 2),
-		cut(x -= 3, y),
-		cut(x, y -= 4),
+		move(x += 5 * scale, y),
+		cut(x += 5 * scale, y -= 4 * scale),
+		cut(x, y -= 2 * scale),
+		cut(x -= 3 * scale, y),
+		cut(x, y -= 4 * scale),
 		
-		cut(x -= 4, y),
+		cut(x -= 4 * scale, y),
 
-		cut(x, y += 4),
-		cut(x -= 3, y),
-		cut(x, y += 2),
-		cut(x += 5, y += 4),
+		cut(x, y += 4 * scale),
+		cut(x -= 3 * scale, y),
+		cut(x, y += 2 * scale),
+		cut(x += 5 * scale, y += 4 * scale),
 		move(x, y),
 	]
 }
@@ -39,6 +40,17 @@ function autoStockPointTest(lowerLeftX, lowerLeftY, upperRightX, upperRightY, ta
 	// lower left, upper right, origin vector
 	return newTest(new Vector(lowerLeftX, lowerLeftY), new Vector(upperRightX, upperRightY), new Vector(0, 0), targetId)
 		.withSection(JET_MODE_ETCHING, {}, drawArrow(lowerLeftX, upperRightY));
+}
+
+function autoStockPointInchesTest(lowerLeftX, lowerLeftY, upperRightX, upperRightY, targetId) {
+	var mmToInches = 0.0393701;
+
+	// lower left, upper right, origin vector
+	return newTest(new Vector(lowerLeftX * mmToInches, lowerLeftY * mmToInches),
+	 				new Vector(upperRightX * mmToInches, upperRightY * mmToInches),
+	 				new Vector(0, 0), targetId)
+		.withUnits(IN)
+		.withSection(JET_MODE_ETCHING, {}, drawArrow(lowerLeftX * mmToInches, upperRightY * mmToInches, mmToInches));
 }
 
 function useWorkAreaTest(lowerLeftX, lowerLeftY, upperRightX, upperRightY, targetId) {
@@ -102,6 +114,17 @@ function colorTest(colorCount) {
 	tests.push(autoStockPointTest(0,     0, 10, 10, 'auto-stock-point-lower-left'));
 	tests.push(autoStockPointTest(-5,    0, 5,  10, 'auto-stock-point-lower-middle'));
 	tests.push(autoStockPointTest(-10,   0, 0,  10, 'auto-stock-point-lower-right'));
+
+	// Auto Stock Point 
+	tests.push(autoStockPointInchesTest(0,   -10, 10,  0, 'auto-stock-point-in-upper-left'));
+	tests.push(autoStockPointInchesTest(-5,  -10, 5,   0, 'auto-stock-point-in-upper-middle'));
+	tests.push(autoStockPointInchesTest(-10, -10, 0,   0, 'auto-stock-point-in-upper-right'));
+	tests.push(autoStockPointInchesTest(0,    -5, 10,  5, 'auto-stock-point-in-middle-left'));
+	tests.push(autoStockPointInchesTest(-5,   -5, 5,   5, 'auto-stock-point-in-middle-middle'));
+	tests.push(autoStockPointInchesTest(-10,  -5, 0,   5, 'auto-stock-point-in-middle-right'));
+	tests.push(autoStockPointInchesTest(0,     0, 10, 10, 'auto-stock-point-in-lower-left'));
+	tests.push(autoStockPointInchesTest(-5,    0, 5,  10, 'auto-stock-point-in-lower-middle'));
+	tests.push(autoStockPointInchesTest(-10,   0, 0,  10, 'auto-stock-point-in-lower-right'));
 
 	// use work area with auto stock point detection
 	tests.push(useWorkAreaTest(0,   -10, 10,  0, 'use-work-area-upper-left'));
