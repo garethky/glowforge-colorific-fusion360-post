@@ -94,7 +94,7 @@ var MIN_COLORS = 6;
 function reset() {
   return {
     // ConverterFormat: converted from IN to MM as needed
-    xyzFormat: createFormat({decimals:(3), scale:(unit == MM) ? 1 : 25.4}),
+    xyzFormat: createFormat({decimals:(3), scale:(unit === IN) ? 25.4 : 1}),
     // clamp to 3 decimals but dont convert
     decimalFormat: createFormat({decimals:(3), scale: 1}),
     // selected colors to use for this run
@@ -268,7 +268,7 @@ function isRadiusCompensationInvalid() {
 
 /** Returns the given spatial value in MM. */
 function toMM(value) {
-  return value * ((unit == IN) ? 25.4 : 1);
+  return value * ((unit === IN) ? 25.4 : 1);
 }
 
 function printVector(v) {
@@ -287,12 +287,17 @@ function onOpen() {
   // select colors now that the number of ops is available
   selectColors();
 
-  var box = getWorkpiece();
   // convert everything to mm once up front:
-  box.upper.x = toMM(box.upper.x);
-  box.upper.y = toMM(box.upper.y);
-  box.lower.x = toMM(box.lower.x);
-  box.lower.y = toMM(box.lower.y);
+  var box = {
+    upper: {
+      x: toMM(getWorkpiece().upper.x),
+      y: toMM(getWorkpiece().upper.y)
+    },
+    lower: {
+      x: toMM(getWorkpiece().lower.x),
+      y: toMM(getWorkpiece().lower.y)
+    }
+  };
 
   var dx = box.upper.x - box.lower.x;
   var dy = box.upper.y - box.lower.y;
