@@ -63,11 +63,8 @@ var COLOR_BROWN = "562C05";
 var COLOR_RED = "DD0907";
 var COLOR_TAN = "90713A";
 var COLOR_MAGENTA = "F20884";
-var COLOR_LIGHT_GREY = "C0C0C0";
 var COLOR_PURPLE = "4700A5";
-var COLOR_MEDIUM_GREY = "808080";
 var COLOR_BLUE = "0000D3";
-var COLOR_DARK_GREY = "404040";
 var COLOR_CYAN = "02ABEA";
 var COLOR_BLACK = "000000";
 
@@ -82,9 +79,6 @@ var COLOR_CYCLE = [COLOR_CYAN,
                     COLOR_PURPLE,
                     COLOR_BROWN,
                     COLOR_TAN,
-                    COLOR_LIGHT_GREY,
-                    COLOR_MEDIUM_GREY,
-                    COLOR_DARK_GREY,
                     COLOR_BLACK];
 
 // dont pick fewer colors than this
@@ -119,13 +113,13 @@ function selectColors() {
 
   // if the number of default colors is too small, we will build lighter shades of those colors to fill in the extra needed colors:
   var alphaSteps = Math.ceil(requiredColors / numColors);
-  var alphaStep = 1 / alphaSteps;
+  var alphaStepSize = 1 / (alphaSteps + 1);  // + 1 stops the last alpha blend stage for all colors being FFFFFF
   var alphaStepIndex = 0;
   var colorIndex = 0;
   var finalColorCycle = [];
 
   for (var i = 0; i < requiredColors; i++) {
-    finalColorCycle.push(alphaBlendHexColor(COLOR_CYCLE[colorIndex], 1 - (alphaStep * alphaStepIndex)));
+    finalColorCycle.push(alphaBlendHexColor(COLOR_CYCLE[colorIndex], 1 - (alphaStepSize * alphaStepIndex)));
     colorIndex += 1;  // next color
     if (colorIndex >= numColors) {
       colorIndex = 0;  // start back at the first color
@@ -162,7 +156,7 @@ function sortColors(inputColors) {
 // returns a hex color that is alphaPercent lighter than the input color
 function alphaBlendHexColor(hexColorString, alphaPercent) {
   // alphaPercent needs to be converted from a float to a fraction of 255
-  var alpha = Math.round(alphaPercent * 255);
+  var alpha = alphaPercent;
 
   // hex color needs to be converted from a hex string to its constituent parts:
   var red = parseInt(hexColorString.substring(0, 2), 16);
@@ -180,14 +174,14 @@ function toHexColorChannel(decimal) {
 
 // Alpha blend a color channel white 
 function alphaBlend(colorChannel, alpha) {
-  return toHexColorChannel(Math.round((colorChannel * alpha + 255 * (255 - alpha)) / 255));
+  return toHexColorChannel(Math.round((1 - alpha) * 255 + alpha * colorChannel));
 }
 
 // called on the start of each section, initalizes the first color from the active color cycle.
 function nextColor() {
   state.currentColorIndex = state.currentColorIndex + 1;
   if (state.currentColorIndex >= state.activeColorCycle.length) {
-    state.currentColorIndex = 0;
+    error("Not enough colors were generated!");
   }
 
   state.currentHexColor = state.activeColorCycle[state.currentColorIndex];
@@ -518,5 +512,4 @@ function onCommand() {
 
 function onSectionEnd() {
   finishPath();
-  nextColor();
 }

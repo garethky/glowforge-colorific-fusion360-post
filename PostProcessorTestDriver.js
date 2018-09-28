@@ -395,7 +395,7 @@ function newTest(lowerLeftVector, upperRightVector, originVector, targetId) {
 	}
 
 	function processLine(line) {
-		console.log('line', line);
+		//console.log('line', line);
 		if (line.isRapid === true) {
 			movement = MOVEMENT_RAPID;
 			onRapid(line.x, line.y, 0);
@@ -476,9 +476,10 @@ function newTest(lowerLeftVector, upperRightVector, originVector, targetId) {
 
 			// run all sections...
 			var svg = outputLines.join("\n")
-			console.log(svg);
+			//console.log(svg);
 			document.getElementById(targetId).innerHTML = svg;
-		}
+		},
+		validate: function () {}
 	};
 
 	return test;

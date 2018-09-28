@@ -78,7 +78,8 @@ function colorTest(colorCount) {
 	var height = Math.ceil(13 * Math.ceil(colorCount / columns)) - 3;
 
 	// lower left, upper right, origin vector
-	var test =  newTest(new Vector(0, 0), new Vector(width, height), new Vector(0, 0), "colors-" + colorCount);
+	var element = "colors-" + colorCount;
+	var test = newTest(new Vector(0, 0), new Vector(width, height), new Vector(0, 0), element);
 
 	var x = 0, y = height;
 	
@@ -95,6 +96,20 @@ function colorTest(colorCount) {
 			rows++;
 			//move(0, 10 - (rows * (13)));
 
+		}
+	}
+
+	test.validate = function () {
+		pathElements = document.getElementById(element).getElementsByTagName("path");
+		colorMap = {};
+		for (var i = 0; i < pathElements.length; i++) {
+			path = pathElements[i];
+			var fill = path.getAttribute("fill");
+			if (!colorMap[fill]) {
+				colorMap[fill] = true;
+			} else {
+				return "Duplicate colors detected at index: " + i + " color: " + fill;
+			}
 		}
 	}
 
@@ -152,5 +167,9 @@ function colorTest(colorCount) {
 	for (var i = 0; i < tests.length; i++) {
 		var test = tests[i];
 		test.run();
+		var result = test.validate();
+		if (result) {
+			console.error(result);
+		}
 	}
 })();
