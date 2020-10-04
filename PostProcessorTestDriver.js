@@ -398,10 +398,12 @@ function newTest(lowerLeftVector, upperRightVector, originVector, targetId) {
 		//console.log('line', line);
 		if (line.isRapid === true) {
 			movement = MOVEMENT_RAPID;
+			onPower(false);
 			onRapid(line.x, line.y, 0);
 		}
 		else {
 			movement = MOVEMENT_CUTTING;
+			onPower(true);
 			onLinear(line.x, line.y, 0);
 		}
 		x = line.x;

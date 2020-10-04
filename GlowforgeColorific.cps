@@ -100,7 +100,9 @@ function reset() {
     // track if the next path element can be a move command
     allowMoveCommandNext: null,
     // is the work area too small?
-    workAreaTooSmall: false
+    workAreaTooSmall: false,
+    // is the llaser currently on?
+    isLaserOn: false
   };
 }
 var state = null;
@@ -218,14 +220,14 @@ var activePathElements = [];
 function addPathElement() {
   var args = [].slice.call(arguments);
 
-  // alont allow moves after a rapid or similar move
-  if (args[0] === "M"){
+  // only allow moves (M) in the SVG after the laser has been turned off and comes back on again
+  if (args[0] === "M") {
     if (state.allowMoveCommandNext) {
-      // if this is a move, this should disable further moves untill rapid or similar is detected.
+      // reset the flag to wait for the next laser power cycle
       state.allowMoveCommandNext = false;
     }
     else {
-      // skip rendering this move command since it was not preceeded by a rapid move
+      // skip rendering this move command since the laser has not been turned off
       return;
     }
   }
@@ -434,25 +436,28 @@ function onCyclePoint(x, y, z) {
 function onCycleEnd() {
 }
 
-function writeLine(x, y) {
-  isRadiusCompensationInvalid();
-  
-  switch (movement) {
-  case MOVEMENT_CUTTING:
-  case MOVEMENT_REDUCED:
-  case MOVEMENT_FINISH_CUTTING:
-    break;
-  case MOVEMENT_RAPID:
-  case MOVEMENT_HIGH_FEED:
-  case MOVEMENT_LEAD_IN:
-  case MOVEMENT_LEAD_OUT:
-  case MOVEMENT_LINK_TRANSITION:
-  case MOVEMENT_LINK_DIRECT:
-  default:
+function onPower(isLaserPowerOn) {
+  // if the laser goes from off to on, this happens after a move, so a M should be emitted in the SVG
+  // this check debounces multiple power on caommands in case the way they are emitted ever changes
+  if (!state.isLaserOn && isLaserPowerOn) {
     allowMoveCommand();
-    return; // skip
   }
 
+  state.isLaserOn = isLaserPowerOn;
+}
+
+// validate that the laser is on and that the movement type is a cutting move
+function isCuttingMove(movement) {
+  return state.isLaserOn && (movement === MOVEMENT_CUTTING || movement == MOVEMENT_REDUCED || movement == MOVEMENT_FINISH_CUTTING);
+}
+
+function writeLine(x, y) {
+  if (!isCuttingMove(movement)) {
+    return;
+  }
+
+  isRadiusCompensationInvalid();
+  
   var start = getCurrentPosition();
   if ((state.xyzFormat.format(start.x) == state.xyzFormat.format(x)) &&
       (state.xyzFormat.format(start.y) == state.xyzFormat.format(y))) {
@@ -481,23 +486,11 @@ function onLinear5D(x, y, z, dx, dy, dz, feed) {
 }
 
 function onCircular(clockwise, cx, cy, cz, x, y, z, feed) {
-  isRadiusCompensationInvalid();
-  
-  switch (movement) {
-  case MOVEMENT_CUTTING:
-  case MOVEMENT_REDUCED:
-  case MOVEMENT_FINISH_CUTTING:
-    break;
-  case MOVEMENT_RAPID:
-  case MOVEMENT_HIGH_FEED:
-  case MOVEMENT_LEAD_IN:
-  case MOVEMENT_LEAD_OUT:
-  case MOVEMENT_LINK_TRANSITION:
-  case MOVEMENT_LINK_DIRECT:
-  default:
-    allowMoveCommand();
+  if (!isCuttingMove(movement)) {
     return;
   }
+
+  isRadiusCompensationInvalid();
 
   var start = getCurrentPosition();
 
